@@ -5,6 +5,7 @@
 package org.zlogic.voidreader;
 
 import java.io.File;
+import java.util.ResourceBundle;
 
 /**
  *
@@ -12,8 +13,12 @@ import java.io.File;
  */
 public class Main {
 
-	public static void main(String[] args) {
-		if (args.length == 1)
-			new FeedDownloader(new File(args[0])).downloadFeeds();
+	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
+
+	public static void main(String[] args) throws InterruptedException {
+		if (args.length == 1) {
+			FeedDownloader downloader = new FeedDownloader(new File(args[0]));
+			downloader.downloadFeeds();
+		}
 	}
 }

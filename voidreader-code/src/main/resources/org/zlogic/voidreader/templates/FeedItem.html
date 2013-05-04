@@ -1,0 +1,15 @@
+<html>
+<head>
+	<meta charset="$feed.encoding$" />
+</head>
+<body>
+<h3><a href="$entry.link$">$entry.title$</a></h3>
+<p>$feed.userTitle$<br>$entry.publishedDate$</p>
+$if (entry.contents)$
+$entry.contents:{ it | $it.value$ }$
+$else$
+$entry.description.value$
+$endif$
+</p>
+</body>
+</html>

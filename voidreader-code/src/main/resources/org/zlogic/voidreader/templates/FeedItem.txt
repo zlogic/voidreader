@@ -1,0 +1,5 @@
+$feed.userTitle$
+$entry.title$
+$entry.link$
+$entry.updatedDate$
+$entry.description.value$

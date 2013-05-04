@@ -6,20 +6,17 @@ package org.zlogic.voidreader;
 
 import com.sun.syndication.feed.opml.Opml;
 import com.sun.syndication.feed.opml.Outline;
-import com.sun.syndication.feed.synd.SyndContent;
-import com.sun.syndication.feed.synd.SyndEntry;
-import com.sun.syndication.feed.synd.SyndFeed;
 import com.sun.syndication.io.FeedException;
 import com.sun.syndication.io.WireFeedInput;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URL;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.rometools.fetcher.FeedFetcher;
-import org.rometools.fetcher.FetcherException;
 import org.rometools.fetcher.impl.HttpClientFeedFetcher;
 
 /**
@@ -28,54 +25,38 @@ import org.rometools.fetcher.impl.HttpClientFeedFetcher;
  */
 public class FeedDownloader {
 
+	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
 	private Opml opml;
 	private File opmlFile;
 	private FeedFetcher feedFetcher = new HttpClientFeedFetcher();
+	private List<Feed> feeds = new LinkedList<>();
 
 	public FeedDownloader(File opmlFile) {
 		this.opmlFile = opmlFile;
 	}
 
-	protected void handleEntry(SyndFeed feed, SyndEntry entry) {
-		String feedTitle = feed.getTitle();
-		for (Object obj : entry.getContents())
-			if (obj instanceof SyndContent) {
-				SyndContent content = (SyndContent) obj;
-				String value = content.getValue();
-			}
-	}
-
-	protected void downloadFeed(String url) throws RuntimeException {
-		SyndFeed feed = null;
-		try {
-			feed = feedFetcher.retrieveFeed(new URL(url));
-		} catch (FeedException | FetcherException | IOException | RuntimeException ex) {
-			throw new RuntimeException("Cannot download feed " + url, ex);
-		}
-		for (Object obj : feed.getEntries())
-			if (obj instanceof SyndEntry)
-				handleEntry(feed, (SyndEntry) obj);
-	}
-
-	private void downloadFeeds(List outlines) {
+	private List<Feed> loadFeeds(List outlines, List<String> parentTitles) {
+		List<Feed> loadedFeeds = new LinkedList<>();
+		if (parentTitles == null)
+			parentTitles = new LinkedList<>();
 		for (Object obj : outlines) {
 			if (obj instanceof Outline) {
 				Outline outline = (Outline) obj;
-				String title = outline.getTitle();
+				List<String> currentParentTitles = new LinkedList<>(parentTitles);
+				currentParentTitles.add(outline.getTitle());
 				if ("rss".equals(outline.getType()) && outline.getXmlUrl() != null)
-					try {
-						downloadFeed(outline.getXmlUrl());
-					} catch (Exception ex) {
-						Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-					}
-				downloadFeeds(outline.getChildren());
+					loadedFeeds.add(new Feed(outline.getXmlUrl(), feedFetcher, currentParentTitles));
+				loadedFeeds.addAll(loadFeeds(outline.getChildren(), currentParentTitles));
 			}
 		}
+		return loadedFeeds;
 	}
 
 	private void loadOpml() throws FileNotFoundException, IOException, IllegalArgumentException, FeedException {
-		if (opml == null)
+		if (opml == null) {
 			opml = (Opml) new WireFeedInput().build(opmlFile);
+			feeds = loadFeeds(opml.getOutlines(), null);
+		}
 	}
 
 	public void downloadFeeds() {
@@ -85,6 +66,11 @@ public class FeedDownloader {
 			Logger.getLogger(FeedDownloader.class.getName()).log(Level.SEVERE, null, ex);
 			return;
 		}
-		downloadFeeds(opml.getOutlines());
+		for (Feed feed : feeds)
+			try {
+				feed.update();
+			} catch (RuntimeException ex) {
+				Logger.getLogger(FeedDownloader.class.getName()).log(Level.SEVERE, null, ex);
+			}
 	}
 }
