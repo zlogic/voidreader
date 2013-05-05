@@ -44,7 +44,7 @@ public class Main {
 		 */
 		try {
 			if (args.length == 1) {
-				FeedDownloader downloader = new FeedDownloader(new Properties(new File(args[0])));
+				FeedDownloader downloader = new FeedDownloader(new Settings(new File(args[0])));
 				downloader.downloadFeeds();
 			}
 		} catch (Throwable thr) {

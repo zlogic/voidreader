@@ -13,30 +13,42 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
 
 /**
  *
  * @author Dmitry
  */
-public class Properties {
+public class Settings {
 
-	private static final Logger log = Logger.getLogger(Properties.class.getName());
+	private static final Logger log = Logger.getLogger(Settings.class.getName());
 	private File opmlFile;
 	private File tempDir;
 	private File storageFile;
+	private Properties mailProperties = new Properties();
+	private InternetAddress mailFrom, mailTo;
 
-	public Properties(File source) {
-		java.util.Properties properties = new java.util.Properties();
+	public Settings(File source) throws AddressException {
+		Properties properties = new Properties();
 		try {
 			properties.load(new FileReader(source));
 		} catch (IOException ex) {
 			log.log(Level.SEVERE, null, ex);
 		}
-		opmlFile = new File(properties.getProperty("opml_file", "subscriptions.xml"));
-		storageFile = new File(properties.getProperty("storage_file", "feeds.xml"));
-		tempDir = new File(properties.getProperty("temp_dir", "temp"));
+		opmlFile = new File(properties.getProperty("input.opml", "subscriptions.xml"));
+		storageFile = new File(properties.getProperty("output.storage", "feeds.xml"));
+		tempDir = new File(properties.getProperty("output.tempdir", "temp"));
+
+		for (String prop : properties.stringPropertyNames())
+			if (prop.startsWith("mail."))
+				mailProperties.setProperty(prop, properties.getProperty(prop));
+
+		mailFrom = new InternetAddress(properties.getProperty("email.from"));
+		mailTo = new InternetAddress(properties.getProperty("email.to"));
 
 		try {
 			deleteTree(Paths.get(tempDir.toURI()));
@@ -98,5 +110,17 @@ public class Properties {
 
 	public File getStorageFile() {
 		return storageFile;
+	}
+
+	public Properties getMailProperties() {
+		return mailProperties;
+	}
+
+	public InternetAddress getMailFrom() {
+		return mailFrom;
+	}
+
+	public InternetAddress getMailTo() {
+		return mailTo;
 	}
 }

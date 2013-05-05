@@ -6,6 +6,7 @@ package org.zlogic.voidreader.feed;
 
 import com.sun.syndication.feed.synd.SyndEntry;
 import java.io.IOException;
+import java.util.Date;
 import java.util.Objects;
 import java.util.ResourceBundle;
 import javax.xml.bind.annotation.XmlAttribute;
@@ -22,8 +23,10 @@ public class FeedItem {
 	@XmlAttribute(name = "uuid")
 	private String id;
 	private String link;
+	private String title;
 	private String itemText;
 	private String itemHtml;
+	private Date publishedDate;
 
 	private FeedItem() {
 	}
@@ -31,6 +34,8 @@ public class FeedItem {
 	protected FeedItem(Feed feed, SyndEntry entry) throws IOException {
 		this.id = feed.getUrl() + "@@" + entry.getUri() + "@@" + entry.getLink() + "@@" + entry.getTitle();//Unique ID
 		this.link = entry.getLink();
+		this.title = entry.getTitle();
+		publishedDate = entry.getPublishedDate();
 
 		ST textTemplate = new ST(IOUtils.toString(FeedItem.class.getResourceAsStream("templates/FeedItem.txt")), '$', '$');
 		textTemplate.add("feed", feed);
@@ -70,5 +75,13 @@ public class FeedItem {
 
 	public String getLink() {
 		return link;
+	}
+
+	public String getTitle() {
+		return title;
+	}
+
+	public Date getPublishedDate() {
+		return publishedDate;
 	}
 }

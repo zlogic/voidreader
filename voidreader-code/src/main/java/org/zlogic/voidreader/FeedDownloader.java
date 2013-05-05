@@ -24,9 +24,9 @@ public class FeedDownloader {
 	private FeedFetcher feedFetcher = new HttpClientFeedFetcher();
 	private FeedsState feedData;
 
-	public FeedDownloader(Properties properties) {
-		feedData = new FeedsState(properties.getStorageFile(), properties.getTempDir());
-		this.opmlFile = properties.getOpmlFile();
+	public FeedDownloader(Settings settings) {
+		feedData = new FeedsState(settings);
+		this.opmlFile = settings.getOpmlFile();
 	}
 
 	public void downloadFeeds() throws FileNotFoundException, IOException, IllegalArgumentException, FeedException {

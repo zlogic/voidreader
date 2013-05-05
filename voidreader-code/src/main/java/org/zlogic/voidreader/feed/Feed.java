@@ -73,11 +73,11 @@ public class Feed {
 		items.removeAll(removeItems);
 		//Add new items
 		items.addAll(newItems);
-		for (FeedItem item : newItems){
-			try{
+		for (FeedItem item : newItems) {
+			try {
 				handler.handle(this, item);
-			}catch(RuntimeException ex){
-				log.log(Level.SEVERE,"Error handling feed item"+item,ex);
+			} catch (RuntimeException ex) {
+				log.log(Level.SEVERE, "Error handling feed item" + item, ex);
 				items.remove(item);
 			}
 		}

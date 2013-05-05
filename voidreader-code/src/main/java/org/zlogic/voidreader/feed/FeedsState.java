@@ -19,9 +19,10 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import org.rometools.fetcher.FeedFetcher;
+import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.handler.ErrorHandler;
 import org.zlogic.voidreader.handler.FeedItemHandler;
-import org.zlogic.voidreader.handler.file.FileHandler;
+import org.zlogic.voidreader.handler.file.EmailHandler;
 
 /**
  *
@@ -32,17 +33,17 @@ public class FeedsState {
 
 	@XmlElement(name = "feed")
 	private List<Feed> feeds;
-	
 	private static final Logger log = Logger.getLogger(FeedsState.class.getName());
 	private File persistenceFile;
 	private ErrorHandler errorHandler;
 	private FeedItemHandler feedItemHandler;
 
-	public FeedsState(File persistenceFile, File tempDir) {
-		this.persistenceFile = persistenceFile;
+	public FeedsState(Settings settings) {
+		this.persistenceFile = settings.getStorageFile();
 		if (persistenceFile.exists())
 			restoreDownloadedItems(persistenceFile);
-		FileHandler handler = new FileHandler(tempDir);
+		EmailHandler handler = new EmailHandler(settings);
+		//org.zlogic.voidreader.handler.file.FileHandler handler = new org.zlogic.voidreader.handler.file.FileHandler(settings.getTempDir());
 		errorHandler = handler;
 		feedItemHandler = handler;
 	}
