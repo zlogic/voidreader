@@ -13,5 +13,5 @@ import org.zlogic.voidreader.feed.FeedItem;
  */
 public interface FeedItemHandler {
 
-	public void handle(Feed feed, FeedItem item);
+	public void handle(Feed feed, FeedItem item) throws RuntimeException;
 }

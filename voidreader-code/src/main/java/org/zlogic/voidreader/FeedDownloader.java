@@ -8,10 +8,8 @@ import com.sun.syndication.feed.opml.Opml;
 import com.sun.syndication.io.FeedException;
 import com.sun.syndication.io.WireFeedInput;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ResourceBundle;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.rometools.fetcher.FeedFetcher;
 import org.rometools.fetcher.impl.HttpClientFeedFetcher;
 import org.zlogic.voidreader.feed.FeedsState;
@@ -22,23 +20,17 @@ import org.zlogic.voidreader.feed.FeedsState;
  */
 public class FeedDownloader {
 
-	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
 	private File opmlFile;
 	private FeedFetcher feedFetcher = new HttpClientFeedFetcher();
 	private FeedsState feedData;
 
-	public FeedDownloader(File opmlFile, File stateFile) {
-		feedData = new FeedsState(stateFile);//TODO: make this configurable
-		this.opmlFile = opmlFile;
+	public FeedDownloader(Properties properties) {
+		feedData = new FeedsState(properties.getStorageFile(), properties.getTempDir());
+		this.opmlFile = properties.getOpmlFile();
 	}
 
-	public void downloadFeeds() {
-		try {
-			feedData.updateOpml((Opml) new WireFeedInput().build(opmlFile));
-		} catch (IOException | FeedException | RuntimeException ex) {
-			Logger.getLogger(FeedDownloader.class.getName()).log(Level.SEVERE, null, ex);
-			return;
-		}
+	public void downloadFeeds() throws FileNotFoundException, IOException, IllegalArgumentException, FeedException {
+		feedData.updateOpml((Opml) new WireFeedInput().build(opmlFile));
 		feedData.update(feedFetcher);
 	}
 }

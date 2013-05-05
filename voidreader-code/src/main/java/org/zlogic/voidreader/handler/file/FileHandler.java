@@ -4,13 +4,9 @@
  */
 package org.zlogic.voidreader.handler.file;
 
-import com.itextpdf.text.DocumentException;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.methods.GetMethod;
@@ -41,7 +37,7 @@ public class FileHandler implements ErrorHandler, FeedItemHandler {
 	}
 
 	@Override
-	public void handle(Feed feed, FeedItem item) {
+	public void handle(Feed feed, FeedItem item) throws RuntimeException {
 		String storageDirName = feed.getTitle().replaceAll("[/\n\r\t\0\f`?*\\<>|\":]", "$");
 		if (storageDirName.length() >= MAX_NAME)
 			storageDirName = storageDirName.substring(0, MAX_NAME);
@@ -53,14 +49,12 @@ public class FileHandler implements ErrorHandler, FeedItemHandler {
 				writer.print(item.getItemHtml());
 			}
 			createPdf(tempDir, item);
-		} catch (IOException ex) {
-			Logger.getLogger(Feed.class.getName()).log(Level.SEVERE, "Cannot create temp file in " + tempDir.toString(), ex);
 		} catch (Exception ex) {
-			Logger.getLogger(FileHandler.class.getName()).log(Level.SEVERE, null, ex);
+			throw new RuntimeException("Cannot create temp file in " + tempDir.toString(), ex);
 		}
 	}
 
-	private void createPdf(File parentDir, FeedItem item) throws IOException, DocumentException {
+	private void createPdf(File parentDir, FeedItem item) throws Exception {
 		/*
 		 * See
 		 * http://stackoverflow.com/questions/10493837/how-to-export-html-page-to-pdf-format

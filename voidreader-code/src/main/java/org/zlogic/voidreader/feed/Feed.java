@@ -14,6 +14,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import org.apache.commons.lang3.StringUtils;
@@ -28,6 +30,7 @@ import org.zlogic.voidreader.handler.FeedItemHandler;
 public class Feed {
 
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
+	private static final Logger log = Logger.getLogger(Feed.class.getName());
 	@XmlAttribute(name = "url")
 	private String url;
 	@XmlElement(name = "item")
@@ -70,8 +73,14 @@ public class Feed {
 		items.removeAll(removeItems);
 		//Add new items
 		items.addAll(newItems);
-		for (FeedItem item : newItems)
-			handler.handle(this, item);
+		for (FeedItem item : newItems){
+			try{
+				handler.handle(this, item);
+			}catch(RuntimeException ex){
+				log.log(Level.SEVERE,"Error handling feed item"+item,ex);
+				items.remove(item);
+			}
+		}
 	}
 
 	protected void update(FeedFetcher fetcher, FeedItemHandler handler) throws RuntimeException {

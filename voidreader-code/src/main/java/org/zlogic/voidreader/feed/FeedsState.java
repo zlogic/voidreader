@@ -32,15 +32,17 @@ public class FeedsState {
 
 	@XmlElement(name = "feed")
 	private List<Feed> feeds;
+	
+	private static final Logger log = Logger.getLogger(FeedsState.class.getName());
 	private File persistenceFile;
 	private ErrorHandler errorHandler;
 	private FeedItemHandler feedItemHandler;
 
-	public FeedsState(File persistenceFile) {
+	public FeedsState(File persistenceFile, File tempDir) {
 		this.persistenceFile = persistenceFile;
 		if (persistenceFile.exists())
 			restoreDownloadedItems(persistenceFile);
-		FileHandler handler = new FileHandler(new File("temp"));
+		FileHandler handler = new FileHandler(tempDir);
 		errorHandler = handler;
 		feedItemHandler = handler;
 	}
@@ -120,11 +122,11 @@ public class FeedsState {
 
 	public void update(FeedFetcher feedFetcher) throws RuntimeException {
 		for (Feed feed : feeds) {
-			Logger.getLogger(FeedsState.class.getName()).log(Level.INFO, "Processing item {0} out of {1} ({2})", new Object[]{feeds.indexOf(feed) + 1, feeds.size(), feed.getUrl()});
+			log.log(Level.INFO, "Processing item {0} out of {1} ({2})", new Object[]{feeds.indexOf(feed) + 1, feeds.size(), feed.getUrl()});
 			try {
 				feed.update(feedFetcher, feedItemHandler);
 			} catch (RuntimeException ex) {
-				Logger.getLogger(FeedsState.class.getName()).log(Level.SEVERE, null, ex);//TODO: use an error handler
+				log.log(Level.SEVERE, null, ex);//TODO: use an error handler
 			}
 		}
 		try {

@@ -7,9 +7,9 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>-Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main '../../../Test homedir/subscriptions.xml' feeds.xml</exec.args>
+                <exec.args>-Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main config.properties</exec.args>
                 <exec.executable>java</exec.executable>
-                <exec.workingdir>target</exec.workingdir>
+                <exec.workingdir>../../Test homedir</exec.workingdir>
             </properties>
         </action>
         <action>
@@ -19,10 +19,10 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main '../../../Test homedir/subscriptions.xml' feeds.xml</exec.args>
+                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main config.properties</exec.args>
                 <exec.executable>java</exec.executable>
                 <jpda.listen>true</jpda.listen>
-                <exec.workingdir>target</exec.workingdir>
+                <exec.workingdir>../../Test homedir</exec.workingdir>
             </properties>
         </action>
         <action>
@@ -32,9 +32,9 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>${profiler.args} -Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main '../../../Test homedir/subscriptions.xml' feeds.xml</exec.args>
+                <exec.args>${profiler.args} -Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main config.properties</exec.args>
                 <exec.executable>${profiler.java}</exec.executable>
-                <exec.workingdir>target</exec.workingdir>
+                <exec.workingdir>../../Test homedir</exec.workingdir>
             </properties>
         </action>
     </actions>
