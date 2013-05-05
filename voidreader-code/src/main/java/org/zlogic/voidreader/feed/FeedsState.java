@@ -19,6 +19,9 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import org.rometools.fetcher.FeedFetcher;
+import org.zlogic.voidreader.handler.ErrorHandler;
+import org.zlogic.voidreader.handler.FeedItemHandler;
+import org.zlogic.voidreader.handler.file.FileHandler;
 
 /**
  *
@@ -30,11 +33,16 @@ public class FeedsState {
 	@XmlElement(name = "feed")
 	private List<Feed> feeds;
 	private File persistenceFile;
+	private ErrorHandler errorHandler;
+	private FeedItemHandler feedItemHandler;
 
 	public FeedsState(File persistenceFile) {
 		this.persistenceFile = persistenceFile;
 		if (persistenceFile.exists())
 			restoreDownloadedItems(persistenceFile);
+		FileHandler handler = new FileHandler(new File("temp"));
+		errorHandler = handler;
+		feedItemHandler = handler;
 	}
 
 	private FeedsState() {
@@ -112,9 +120,9 @@ public class FeedsState {
 
 	public void update(FeedFetcher feedFetcher) throws RuntimeException {
 		for (Feed feed : feeds) {
-			Logger.getLogger(FeedsState.class.getName()).log(Level.INFO, "Processing item {0} out of {1} ({2})", new Object[]{feeds.indexOf(feed)+1, feeds.size(), feed.getUrl()});
+			Logger.getLogger(FeedsState.class.getName()).log(Level.INFO, "Processing item {0} out of {1} ({2})", new Object[]{feeds.indexOf(feed) + 1, feeds.size(), feed.getUrl()});
 			try {
-				feed.update(feedFetcher);
+				feed.update(feedFetcher, feedItemHandler);
 			} catch (RuntimeException ex) {
 				Logger.getLogger(FeedsState.class.getName()).log(Level.SEVERE, null, ex);//TODO: use an error handler
 			}

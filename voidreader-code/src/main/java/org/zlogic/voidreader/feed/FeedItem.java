@@ -21,6 +21,7 @@ public class FeedItem {
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
 	@XmlAttribute(name = "uuid")
 	private String id;
+	private String link;
 	private String itemText;
 	private String itemHtml;
 
@@ -29,6 +30,7 @@ public class FeedItem {
 
 	protected FeedItem(Feed feed, SyndEntry entry) throws IOException {
 		this.id = feed.getUrl() + "@@" + entry.getUri() + "@@" + entry.getLink() + "@@" + entry.getTitle();//Unique ID
+		this.link = entry.getLink();
 
 		ST textTemplate = new ST(IOUtils.toString(FeedItem.class.getResourceAsStream("templates/FeedItem.txt")), '$', '$');
 		textTemplate.add("feed", feed);
@@ -39,6 +41,7 @@ public class FeedItem {
 		htmlTemplate.add("feed", feed);
 		htmlTemplate.add("entry", entry);
 		itemHtml = htmlTemplate.render();
+		//TODO: extract alt-text from images for comics
 	}
 
 	@Override
@@ -63,5 +66,9 @@ public class FeedItem {
 
 	public String getItemHtml() {
 		return itemHtml;
+	}
+
+	public String getLink() {
+		return link;
 	}
 }

@@ -7,22 +7,19 @@ package org.zlogic.voidreader.feed;
 import com.sun.syndication.feed.synd.SyndEntry;
 import com.sun.syndication.feed.synd.SyndFeed;
 import com.sun.syndication.io.FeedException;
-import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.URL;
 import java.text.MessageFormat;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import org.apache.commons.lang3.StringUtils;
 import org.rometools.fetcher.FeedFetcher;
 import org.rometools.fetcher.FetcherException;
+import org.zlogic.voidreader.handler.FeedItemHandler;
 
 /**
  *
@@ -52,7 +49,7 @@ public class Feed {
 		this.items = items;
 	}
 
-	private void handleEntries(List<Object> entries) throws IOException {
+	private void handleEntries(List<Object> entries, FeedItemHandler handler) throws IOException {
 		if (items == null)
 			items = new LinkedList<>();
 		List<FeedItem> newItems = new LinkedList<>();
@@ -74,31 +71,15 @@ public class Feed {
 		//Add new items
 		items.addAll(newItems);
 		for (FeedItem item : newItems)
-			handleNewEntry(item);
+			handler.handle(this, item);
 	}
 
-	private void handleNewEntry(FeedItem item) {
-		//TODO: move this to a handler class
-		File tempDir = new File("temp");
-		//for (String dir : userTitle)
-		//	tempDir = new File(tempDir, dir.replaceAll("[/\n\r\t\0\f`?*\\<>|\":]", "$"));
-		tempDir.mkdirs();
-		try {
-			File outputFile = File.createTempFile("html-", ".html", tempDir);
-			try (PrintWriter writer = new PrintWriter(outputFile)) {
-				writer.print(item.getItemHtml());
-			}
-		} catch (IOException ex) {
-			Logger.getLogger(Feed.class.getName()).log(Level.SEVERE, "Cannot create temp file in " + tempDir.toString(), ex);
-		}
-	}
-
-	protected void update(FeedFetcher fetcher) throws RuntimeException {
+	protected void update(FeedFetcher fetcher, FeedItemHandler handler) throws RuntimeException {
 		try {
 			SyndFeed feed = fetcher.retrieveFeed(new URL(url));
 			title = feed.getTitle();
 			encoding = feed.getEncoding();
-			handleEntries(feed.getEntries());
+			handleEntries(feed.getEntries(), handler);
 		} catch (FeedException | FetcherException | IOException | IllegalArgumentException ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
 		}
