@@ -8,7 +8,6 @@ import com.sun.syndication.feed.opml.Opml;
 import com.sun.syndication.io.FeedException;
 import com.sun.syndication.io.WireFeedInput;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
