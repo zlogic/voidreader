@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package org.zlogic.voidreader;
+package org.zlogic.voidreader.feed;
 
 import com.sun.syndication.feed.synd.SyndEntry;
 import com.sun.syndication.feed.synd.SyndFeed;
@@ -14,9 +14,12 @@ import java.net.URL;
 import java.text.MessageFormat;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
 import org.apache.commons.lang3.StringUtils;
 import org.rometools.fetcher.FeedFetcher;
 import org.rometools.fetcher.FetcherException;
@@ -28,17 +31,25 @@ import org.rometools.fetcher.FetcherException;
 public class Feed {
 
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
-	private String title;
+	@XmlAttribute(name = "url")
+	private String url;
+	@XmlElement(name = "item")
 	private List<FeedItem> items;
+	private String title;
 	private String encoding;
 	private List<String> userTitle;
-	private String url;
-	private FeedFetcher feedFetcher;
 
-	protected Feed(String url, FeedFetcher feedFetcher, List<String> userTitle) {
+	private Feed() {
+	}
+
+	protected Feed(String url, List<String> userTitle) {
 		this.url = url;
-		this.feedFetcher = feedFetcher;
 		this.userTitle = new LinkedList<>(userTitle);
+	}
+
+	protected Feed(Feed feed, List<FeedItem> items) {
+		this(feed.url, feed.userTitle);
+		this.items = items;
 	}
 
 	private void handleEntries(List<Object> entries) throws IOException {
@@ -49,28 +60,28 @@ public class Feed {
 			if (obj instanceof SyndEntry)
 				newItems.add(new FeedItem(this, (SyndEntry) obj));
 
-		// Discard already existing items
-		newItems.removeAll(items);
-
 		//Find outdated items
 		List<FeedItem> removeItems = new LinkedList<>();
 		for (FeedItem oldItem : items)
 			if (!newItems.contains(oldItem))
 				removeItems.add(oldItem);
-		{
-			//Discard outdated items
-			items.removeAll(removeItems);
-			//Add new items
-			items.addAll(newItems);
-			for (FeedItem item : newItems)
-				handleNewEntry(item);
-		}
+
+		// Ignore already existing items
+		newItems.removeAll(items);
+
+		//Discard outdated items
+		items.removeAll(removeItems);
+		//Add new items
+		items.addAll(newItems);
+		for (FeedItem item : newItems)
+			handleNewEntry(item);
 	}
 
 	private void handleNewEntry(FeedItem item) {
+		//TODO: move this to a handler class
 		File tempDir = new File("temp");
-		for (String dir : userTitle)
-			tempDir = new File(tempDir, dir.replaceAll("[/\n\r\t\0\f`?*\\<>|\":]", "$"));
+		//for (String dir : userTitle)
+		//	tempDir = new File(tempDir, dir.replaceAll("[/\n\r\t\0\f`?*\\<>|\":]", "$"));
 		tempDir.mkdirs();
 		try {
 			File outputFile = File.createTempFile("html-", ".html", tempDir);
@@ -82,14 +93,14 @@ public class Feed {
 		}
 	}
 
-	public void update() throws RuntimeException {
+	protected void update(FeedFetcher fetcher) throws RuntimeException {
 		try {
-			SyndFeed feed = feedFetcher.retrieveFeed(new URL(url));
+			SyndFeed feed = fetcher.retrieveFeed(new URL(url));
 			title = feed.getTitle();
 			encoding = feed.getEncoding();
 			handleEntries(feed.getEntries());
-		} catch (FeedException | FetcherException | IOException ex) {
-			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url, ex}), ex);
+		} catch (FeedException | FetcherException | IOException | IllegalArgumentException ex) {
+			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
 		}
 	}
 
@@ -97,6 +108,13 @@ public class Feed {
 	public boolean equals(Object obj) {
 		return obj instanceof Feed
 				&& ((Feed) obj).url.equals(url);
+	}
+
+	@Override
+	public int hashCode() {
+		int hash = 3;
+		hash = 97 * hash + Objects.hashCode(this.url);
+		return hash;
 	}
 
 	/*

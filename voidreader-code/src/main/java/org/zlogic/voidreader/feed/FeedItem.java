@@ -2,11 +2,13 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package org.zlogic.voidreader;
+package org.zlogic.voidreader.feed;
 
 import com.sun.syndication.feed.synd.SyndEntry;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.ResourceBundle;
+import javax.xml.bind.annotation.XmlAttribute;
 import org.apache.commons.io.IOUtils;
 import org.stringtemplate.v4.ST;
 
@@ -17,14 +19,16 @@ import org.stringtemplate.v4.ST;
 public class FeedItem {
 
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
-	private Feed feed;
-	private String uri;
+	@XmlAttribute(name = "uuid")
+	private String id;
 	private String itemText;
 	private String itemHtml;
 
+	private FeedItem() {
+	}
+
 	protected FeedItem(Feed feed, SyndEntry entry) throws IOException {
-		this.feed = feed;
-		this.uri = entry.getUri();
+		this.id = feed.getUrl() + "@@" + entry.getUri() + "@@" + entry.getLink() + "@@" + entry.getTitle();//Unique ID
 
 		ST textTemplate = new ST(IOUtils.toString(FeedItem.class.getResourceAsStream("templates/FeedItem.txt")), '$', '$');
 		textTemplate.add("feed", feed);
@@ -37,14 +41,17 @@ public class FeedItem {
 		itemHtml = htmlTemplate.render();
 	}
 
-	public void send() {
-	}
-
 	@Override
 	public boolean equals(Object obj) {
 		return obj instanceof FeedItem
-				&& ((FeedItem) obj).feed.equals(feed)
-				&& ((FeedItem) obj).uri.equals(uri);
+				&& ((FeedItem) obj).id.equals(id);
+	}
+
+	@Override
+	public int hashCode() {
+		int hash = 3;
+		hash = 97 * hash + Objects.hashCode(this.id);
+		return hash;
 	}
 
 	/*

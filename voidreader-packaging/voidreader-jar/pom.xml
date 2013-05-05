@@ -19,6 +19,10 @@
 			<groupId>org.zlogic.voidreader</groupId>
 			<artifactId>code</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.zlogic.voidreader</groupId>
+			<artifactId>voidreader-resources</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>
