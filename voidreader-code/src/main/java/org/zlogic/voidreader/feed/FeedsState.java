@@ -23,6 +23,7 @@ import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.handler.ErrorHandler;
 import org.zlogic.voidreader.handler.FeedItemHandler;
 import org.zlogic.voidreader.handler.file.EmailHandler;
+import org.zlogic.voidreader.handler.file.FileHandler;
 
 /**
  *
@@ -42,10 +43,18 @@ public class FeedsState {
 		this.persistenceFile = settings.getStorageFile();
 		if (persistenceFile.exists())
 			restoreDownloadedItems(persistenceFile);
-		EmailHandler handler = new EmailHandler(settings);
-		//org.zlogic.voidreader.handler.file.FileHandler handler = new org.zlogic.voidreader.handler.file.FileHandler(settings.getTempDir());
-		errorHandler = handler;
-		feedItemHandler = handler;
+		switch (settings.getHandler()) {
+			case SMTP:
+				EmailHandler emailHandler = new EmailHandler(settings);
+				errorHandler = emailHandler;
+				feedItemHandler = emailHandler;
+				break;
+			case FILE:
+				FileHandler fileHandler = new FileHandler(settings.getTempDir());
+				errorHandler = fileHandler;
+				feedItemHandler = fileHandler;
+				break;
+		}
 	}
 
 	private FeedsState() {

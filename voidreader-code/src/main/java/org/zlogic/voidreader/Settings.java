@@ -26,9 +26,20 @@ import javax.mail.internet.InternetAddress;
 public class Settings {
 
 	private static final Logger log = Logger.getLogger(Settings.class.getName());
+
+	public Handler getHandler() {
+		return handler;
+	}
+
+	public enum Handler {
+
+		SMTP,
+		FILE
+	};
 	private File opmlFile;
 	private File tempDir;
 	private File storageFile;
+	private Handler handler;
 	private Properties mailProperties = new Properties();
 	private InternetAddress mailFrom, mailTo;
 
@@ -42,12 +53,13 @@ public class Settings {
 		opmlFile = new File(properties.getProperty("input.opml", "subscriptions.xml"));
 		storageFile = new File(properties.getProperty("output.storage", "feeds.xml"));
 		tempDir = new File(properties.getProperty("output.tempdir", "temp"));
+		handler = Handler.valueOf(properties.getProperty("output.handler").toString().toUpperCase());
 
 		for (String prop : properties.stringPropertyNames())
 			if (prop.startsWith("mail."))
 				mailProperties.setProperty(prop, properties.getProperty(prop));
 
-		mailFrom = new InternetAddress(properties.getProperty("email.from"));
+		mailFrom = new InternetAddress(properties.getProperty("email.from"));//TODO: use feed name as sender?
 		mailTo = new InternetAddress(properties.getProperty("email.to"));
 
 		try {
