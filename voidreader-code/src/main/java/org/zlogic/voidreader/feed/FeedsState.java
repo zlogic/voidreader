@@ -9,6 +9,10 @@ import com.sun.syndication.feed.opml.Outline;
 import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.bind.JAXBContext;
@@ -22,8 +26,8 @@ import org.rometools.fetcher.FeedFetcher;
 import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.handler.ErrorHandler;
 import org.zlogic.voidreader.handler.FeedItemHandler;
-import org.zlogic.voidreader.handler.file.EmailHandler;
-import org.zlogic.voidreader.handler.file.FileHandler;
+import org.zlogic.voidreader.handler.impl.EmailHandler;
+import org.zlogic.voidreader.handler.impl.FileHandler;
 
 /**
  *
@@ -130,14 +134,37 @@ public class FeedsState {
 		return feeds;
 	}
 
-	public void update(FeedFetcher feedFetcher) throws RuntimeException {
+	public void update(FeedFetcher feedFetcher) throws RuntimeException, TimeoutException {
+		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());//TODO: make this configurable
 		for (Feed feed : feeds) {
-			log.log(Level.INFO, "Processing item {0} out of {1} ({2})", new Object[]{feeds.indexOf(feed) + 1, feeds.size(), feed.getUrl()});
-			try {
-				feed.update(feedFetcher, feedItemHandler);
-			} catch (RuntimeException ex) {
-				log.log(Level.SEVERE, null, ex);//TODO: use an error handler
+			executor.submit(new Runnable() {
+				private FeedFetcher feedFetcher;
+				private Feed feed;
+
+				public Runnable setParameters(Feed feed, FeedFetcher feedFetcher) {
+					this.feed = feed;
+					this.feedFetcher = feedFetcher;
+					return this;
+				}
+
+				@Override
+				public void run() {
+					try {
+						feed.update(feedFetcher, feedItemHandler);
+					} catch (RuntimeException ex) {
+						log.log(Level.SEVERE, null, ex);//TODO: use an error handler
+					}
+				}
+			}.setParameters(feed, feedFetcher));
+		}
+		executor.shutdown();
+		try {
+			if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
+				//TODO: make this configurable
+				throw new TimeoutException("Timed out waiting for executor");
 			}
+		} catch (InterruptedException ex) {
+			throw new RuntimeException(ex);
 		}
 		try {
 			saveDownloadedItems();

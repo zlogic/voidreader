@@ -14,6 +14,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.bind.annotation.XmlAttribute;
@@ -52,7 +56,7 @@ public class Feed {
 		this.items = items;
 	}
 
-	private void handleEntries(List<Object> entries, FeedItemHandler handler) throws IOException {
+	private void handleEntries(List<Object> entries, FeedItemHandler handler) throws IOException, TimeoutException {
 		if (items == null)
 			items = new LinkedList<>();
 		List<FeedItem> newItems = new LinkedList<>();
@@ -73,13 +77,41 @@ public class Feed {
 		items.removeAll(removeItems);
 		//Add new items
 		items.addAll(newItems);
+		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());//TODO: make this configurable
 		for (FeedItem item : newItems) {
-			try {
-				handler.handle(this, item);
-			} catch (RuntimeException ex) {
-				log.log(Level.SEVERE, "Error handling feed item" + item, ex);
-				items.remove(item);
+			executor.submit(new Runnable() {
+				private FeedItemHandler handler;
+				private Feed feed;
+				private FeedItem item;
+
+				public Runnable setParameters(FeedItemHandler handler, Feed feed, FeedItem item) {
+					this.handler = handler;
+					this.feed = feed;
+					this.item = item;
+					return this;
+				}
+
+				@Override
+				public void run() {
+					try {
+						handler.handle(feed, item);
+					} catch (RuntimeException ex) {
+						log.log(Level.SEVERE, "Error handling feed item" + item, ex);
+						synchronized (items) {
+							items.remove(item);
+						}
+					}
+				}
+			}.setParameters(handler, this, item));
+		}
+		executor.shutdown();
+		try {
+			if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
+				//TODO: make this configurable
+				throw new TimeoutException("Timed out waiting for executor");
 			}
+		} catch (InterruptedException ex) {
+			throw new RuntimeException(ex);
 		}
 	}
 
@@ -89,7 +121,7 @@ public class Feed {
 			title = feed.getTitle();
 			encoding = feed.getEncoding();
 			handleEntries(feed.getEntries(), handler);
-		} catch (FeedException | FetcherException | IOException | IllegalArgumentException ex) {
+		} catch (FeedException | FetcherException | IOException | IllegalArgumentException | TimeoutException ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
 		}
 	}

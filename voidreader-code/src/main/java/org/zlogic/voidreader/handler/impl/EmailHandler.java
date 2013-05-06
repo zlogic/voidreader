@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package org.zlogic.voidreader.handler.file;
+package org.zlogic.voidreader.handler.impl;
 
 import java.io.ByteArrayOutputStream;
 import java.text.MessageFormat;
@@ -21,12 +21,6 @@ import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.w3c.dom.Document;
-import org.w3c.tidy.Tidy;
-import org.xhtmlrenderer.pdf.ITextRenderer;
 import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.feed.Feed;
 import org.zlogic.voidreader.feed.FeedItem;
@@ -37,7 +31,7 @@ import org.zlogic.voidreader.handler.FeedItemHandler;
  *
  * @author Dmitry
  */
-public class EmailHandler implements ErrorHandler, FeedItemHandler {
+public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, FeedItemHandler {
 
 	private static final Logger log = Logger.getLogger(EmailHandler.class.getName());
 	private static final int MAX_NAME = 100;
@@ -120,34 +114,9 @@ public class EmailHandler implements ErrorHandler, FeedItemHandler {
 	}
 
 	private byte[] createPdf(FeedItem item) throws Exception {
-		/*
-		 * See
-		 * http://stackoverflow.com/questions/10493837/how-to-export-html-page-to-pdf-format
-		 * http://stackoverflow.com/questions/235851/using-itext-to-convert-html-to-pdf
-		 */
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-		Document doc;
-		HttpClient httpClient = new HttpClient();
-		HttpMethod getMethod = new GetMethod(item.getLink());
-		try {
-			httpClient.executeMethod(getMethod);
-			Tidy tidy = new Tidy();
-			tidy.setXmlOut(true);
-			tidy.setQuiet(true);
-			tidy.setDropProprietaryAttributes(true);
-			tidy.setShowErrors(0);
-			tidy.setShowWarnings(false);
-			doc = tidy.parseDOM(getMethod.getResponseBodyAsStream(), null);
-		} finally {
-			getMethod.releaseConnection();
-		}
-
-		//Convert to PDF
-		ITextRenderer renderer = new ITextRenderer();
-		renderer.setDocument(doc, item.getLink());
-		renderer.layout();
-		renderer.createPDF(out);
+		downloadRenderPdf(item.getLink()).createPDF(out);
 		return out.toByteArray();
 	}
 }

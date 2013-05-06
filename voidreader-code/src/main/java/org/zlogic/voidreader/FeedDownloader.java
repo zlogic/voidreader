@@ -10,6 +10,7 @@ import com.sun.syndication.io.WireFeedInput;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.concurrent.TimeoutException;
 import org.rometools.fetcher.FeedFetcher;
 import org.rometools.fetcher.impl.HttpClientFeedFetcher;
 import org.zlogic.voidreader.feed.FeedsState;
@@ -29,7 +30,7 @@ public class FeedDownloader {
 		this.opmlFile = settings.getOpmlFile();
 	}
 
-	public void downloadFeeds() throws FileNotFoundException, IOException, IllegalArgumentException, FeedException {
+	public void downloadFeeds() throws FileNotFoundException, IOException, IllegalArgumentException, FeedException, TimeoutException {
 		feedData.updateOpml((Opml) new WireFeedInput().build(opmlFile));
 		feedData.update(feedFetcher);
 	}

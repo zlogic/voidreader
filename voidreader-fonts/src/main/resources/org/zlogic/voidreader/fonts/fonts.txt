@@ -1,0 +1,10 @@
+OpenSans/OpenSans-Bold.ttf
+OpenSans/OpenSans-BoldItalic.ttf
+OpenSans/OpenSans-ExtraBold.ttf
+OpenSans/OpenSans-ExtraBoldItalic.ttf
+OpenSans/OpenSans-Italic.ttf
+OpenSans/OpenSans-Light.ttf
+OpenSans/OpenSans-LightItalic.ttf
+OpenSans/OpenSans-Regular.ttf
+OpenSans/OpenSans-Semibold.ttf
+OpenSans/OpenSans-SemiboldItalic.ttf

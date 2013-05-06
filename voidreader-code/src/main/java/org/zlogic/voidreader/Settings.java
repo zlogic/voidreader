@@ -78,7 +78,7 @@ public class Settings {
 				}
 			}
 		};
-		Runtime.getRuntime().addShutdownHook(new Thread(deleteFile));
+		//Runtime.getRuntime().addShutdownHook(new Thread(deleteFile));
 	}
 
 	/**
