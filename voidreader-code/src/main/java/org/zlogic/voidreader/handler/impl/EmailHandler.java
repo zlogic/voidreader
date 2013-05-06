@@ -5,6 +5,7 @@
 package org.zlogic.voidreader.handler.impl;
 
 import java.io.ByteArrayOutputStream;
+import java.io.UnsupportedEncodingException;
 import java.text.MessageFormat;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -17,6 +18,7 @@ import javax.mail.Multipart;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
+import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
@@ -72,9 +74,12 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 		MimeMessage message = new MimeMessage(mailSession);
 
 		try {
-			message.setFrom(settings.getMailFrom());
+			InternetAddress mailFrom = settings.getMailFrom();
+			mailFrom.setPersonal(feed.getUserTitle().replaceAll("[\r\n]+", ""), "utf-8");
+			message.setFrom(mailFrom);
+
 			message.addRecipient(Message.RecipientType.TO, settings.getMailTo());
-			message.setSubject(MessageFormat.format("{0} : {1}", new Object[]{feed.getUserTitle().replaceAll("[\r\n]+", ""), item.getTitle().replaceAll("[\r\n]+", "")}));
+			message.setSubject(MessageFormat.format("{0}", new Object[]{item.getTitle().replaceAll("[\r\n]+", "")}));
 
 			Multipart multipart = new MimeMultipart();
 
@@ -108,7 +113,7 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 			message.setContent(multipart);
 			message.setSentDate(item.getPublishedDate());
 			Transport.send(message);
-		} catch (MessagingException ex) {
+		} catch (MessagingException | UnsupportedEncodingException ex) {
 			throw new RuntimeException("Cannot send or prepare email message for item " + item.getLink(), ex);
 		}
 	}

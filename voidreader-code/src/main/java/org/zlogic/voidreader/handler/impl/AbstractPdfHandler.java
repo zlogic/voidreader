@@ -51,7 +51,7 @@ public abstract class AbstractPdfHandler {
 	}
 
 	protected ITextRenderer downloadRenderPdf(String url) throws IOException, DocumentException {
-		Document htmlDocument = Jsoup.connect(url).followRedirects(true).timeout(60000).get();//TODO:Make this confugurable
+		Document htmlDocument = Jsoup.connect(url).followRedirects(true).timeout(60000).get();//TODO: make timeout configurable
 		Cleaner cleaner = new Cleaner(Whitelist.relaxed().preserveRelativeLinks(false)
 				.addTags("span")
 				.addAttributes("span", "id", "style"));

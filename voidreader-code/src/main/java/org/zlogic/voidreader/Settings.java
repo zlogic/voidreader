@@ -59,7 +59,7 @@ public class Settings {
 			if (prop.startsWith("mail."))
 				mailProperties.setProperty(prop, properties.getProperty(prop));
 
-		mailFrom = new InternetAddress(properties.getProperty("email.from"));//TODO: use feed name as sender?
+		mailFrom = new InternetAddress(properties.getProperty("email.from"));
 		mailTo = new InternetAddress(properties.getProperty("email.to"));
 
 		try {

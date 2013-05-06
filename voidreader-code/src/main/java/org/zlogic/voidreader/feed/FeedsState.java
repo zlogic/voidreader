@@ -160,7 +160,7 @@ public class FeedsState {
 		executor.shutdown();
 		try {
 			if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
-				//TODO: make this configurable
+				//TODO: make timeout configurable
 				throw new TimeoutException("Timed out waiting for executor");
 			}
 		} catch (InterruptedException ex) {
