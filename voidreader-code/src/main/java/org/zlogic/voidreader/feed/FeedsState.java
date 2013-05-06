@@ -49,6 +49,7 @@ public class FeedsState {
 			restoreDownloadedItems(persistenceFile);
 		switch (settings.getHandler()) {
 			case SMTP:
+			case IMAP:
 				EmailHandler emailHandler = new EmailHandler(settings);
 				errorHandler = emailHandler;
 				feedItemHandler = emailHandler;
@@ -135,7 +136,7 @@ public class FeedsState {
 	}
 
 	public void update(FeedFetcher feedFetcher) throws RuntimeException, TimeoutException {
-		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());//TODO: make this configurable
+		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4);//TODO: make this configurable
 		for (Feed feed : feeds) {
 			executor.submit(new Runnable() {
 				private FeedFetcher feedFetcher;

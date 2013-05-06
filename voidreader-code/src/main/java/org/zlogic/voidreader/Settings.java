@@ -27,13 +27,10 @@ public class Settings {
 
 	private static final Logger log = Logger.getLogger(Settings.class.getName());
 
-	public Handler getHandler() {
-		return handler;
-	}
-
 	public enum Handler {
 
 		SMTP,
+		IMAP,
 		FILE
 	};
 	private File opmlFile;
@@ -42,6 +39,8 @@ public class Settings {
 	private Handler handler;
 	private Properties mailProperties = new Properties();
 	private InternetAddress mailFrom, mailTo;
+	private String mailUser, mailPassword;
+	private String imapStore, imapFolder;
 
 	public Settings(File source) throws AddressException {
 		Properties properties = new Properties();
@@ -61,24 +60,31 @@ public class Settings {
 
 		mailFrom = new InternetAddress(properties.getProperty("email.from"));
 		mailTo = new InternetAddress(properties.getProperty("email.to"));
+		mailUser = properties.getProperty("email.user");
+		mailPassword = properties.getProperty("email.password");
+		imapStore = properties.getProperty("email.imap.store");
+		imapFolder = properties.getProperty("email.imap.folder");
 
-		try {
-			deleteTree(Paths.get(tempDir.toURI()));
-		} catch (IOException ex) {
-			log.log(Level.SEVERE, null, ex);
-		}
-
-		Runnable deleteFile = new Runnable() {
-			@Override
-			public void run() {
-				try {
-					deleteTree(Paths.get(tempDir.toURI()));
-				} catch (IOException ex) {
-					log.log(Level.SEVERE, null, ex);
-				}
+		if (handler == Handler.FILE) {
+			try {
+				deleteTree(Paths.get(tempDir.toURI()));
+			} catch (IOException ex) {
+				log.log(Level.FINEST, null, ex);
 			}
-		};
-		//Runtime.getRuntime().addShutdownHook(new Thread(deleteFile));
+			/*
+			 Runnable deleteFile = new Runnable() {
+			 @Override
+			 public void run() {
+			 try {
+			 deleteTree(Paths.get(tempDir.toURI()));
+			 } catch (IOException ex) {
+			 log.log(Level.SEVERE, null, ex);
+			 }
+			 }
+			 };
+			 Runtime.getRuntime().addShutdownHook(new Thread(deleteFile));
+			 */
+		}
 	}
 
 	/**
@@ -134,5 +140,25 @@ public class Settings {
 
 	public InternetAddress getMailTo() {
 		return mailTo;
+	}
+
+	public Handler getHandler() {
+		return handler;
+	}
+
+	public String getMailUser() {
+		return mailUser;
+	}
+
+	public String getMailPassword() {
+		return mailPassword;
+	}
+
+	public String getImapStore() {
+		return imapStore;
+	}
+
+	public String getImapFolder() {
+		return imapFolder;
 	}
 }

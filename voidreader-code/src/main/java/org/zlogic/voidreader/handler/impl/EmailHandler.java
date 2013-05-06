@@ -12,11 +12,13 @@ import java.util.logging.Logger;
 import javax.activation.DataHandler;
 import javax.mail.Authenticator;
 import javax.mail.BodyPart;
+import javax.mail.Folder;
 import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Multipart;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
+import javax.mail.Store;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
@@ -39,6 +41,7 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 	private static final int MAX_NAME = 100;
 	private Settings settings;
 	private Session mailSession;
+	private Store imapStore;
 
 	public EmailHandler(Settings settings) {
 		this.settings = settings;
@@ -55,7 +58,7 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 				private PasswordAuthentication passwordAuthentication;
 
 				public Authenticator setSettings(Settings settings) {
-					this.passwordAuthentication = new PasswordAuthentication(settings.getMailProperties().getProperty("mail.smtp.user"), settings.getMailProperties().getProperty("mail.smtp.password"));
+					this.passwordAuthentication = new PasswordAuthentication(settings.getMailUser(), settings.getMailPassword());
 					return this;
 				}
 
@@ -65,6 +68,25 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 				}
 			}.setSettings(settings);
 			mailSession = Session.getDefaultInstance(settings.getMailProperties(), authenticator);
+			try {
+				imapStore = mailSession.getStore(settings.getImapStore());
+			} catch (MessagingException ex) {
+				Logger.getLogger(EmailHandler.class.getName()).log(Level.SEVERE, null, ex);
+			}
+			if (settings.getHandler() == Settings.Handler.IMAP) {
+				Runnable closeStoreRunnable = new Runnable() {
+					@Override
+					public void run() {
+						try {
+							if (imapStore != null && imapStore.isConnected())
+								imapStore.close();
+						} catch (MessagingException ex) {
+							Logger.getLogger(EmailHandler.class.getName()).log(Level.SEVERE, null, ex);
+						}
+					}
+				};
+				Runtime.getRuntime().addShutdownHook(new Thread(closeStoreRunnable));
+			}
 		}
 	}
 
@@ -75,7 +97,7 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 
 		try {
 			InternetAddress mailFrom = settings.getMailFrom();
-			mailFrom.setPersonal(feed.getUserTitle().replaceAll("[\r\n]+", ""), "utf-8");
+			mailFrom.setPersonal(feed.getTitle().replaceAll("[\r\n]+", ""), "utf-8");
 			message.setFrom(mailFrom);
 
 			message.addRecipient(Message.RecipientType.TO, settings.getMailTo());
@@ -112,7 +134,16 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 			}
 			message.setContent(multipart);
 			message.setSentDate(item.getPublishedDate());
-			Transport.send(message);
+			if (settings.getHandler() == Settings.Handler.SMTP) {
+				Transport.send(message);
+			} else if (settings.getHandler() == Settings.Handler.IMAP) {
+				synchronized (imapStore) {
+					if (!imapStore.isConnected())
+						imapStore.connect();
+				}
+				Folder folder = imapStore.getFolder(settings.getImapFolder());
+				folder.appendMessages(new Message[]{message});
+			}
 		} catch (MessagingException | UnsupportedEncodingException ex) {
 			throw new RuntimeException("Cannot send or prepare email message for item " + item.getLink(), ex);
 		}
