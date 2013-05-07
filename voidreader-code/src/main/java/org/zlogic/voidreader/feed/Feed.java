@@ -69,7 +69,7 @@ public class Feed {
 
 		//Find outdated items
 		for (FeedItem oldItem : new TreeSet<>(items))
-			if (!newItems.contains(oldItem) && oldItem.getLastSeen().before(cacheExpiryDate)) {
+			if (!newItems.contains(oldItem) && oldItem.getLastSeen() != null && oldItem.getLastSeen().before(cacheExpiryDate)) {
 				items.remove(oldItem);
 			} else if (newItems.contains(oldItem)) {
 				if (!oldItem.isPdfSent())
@@ -128,6 +128,8 @@ public class Feed {
 			encoding = feed.getEncoding();
 			handleEntries(feed.getEntries(), handler, cacheExpiryDate);
 		} catch (FeedException | FetcherException | IOException | IllegalArgumentException | TimeoutException ex) {
+			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
+		} catch (Exception ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
 		}
 	}
