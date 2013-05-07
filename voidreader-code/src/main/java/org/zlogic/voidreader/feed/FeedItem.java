@@ -10,6 +10,7 @@ import java.util.Date;
 import java.util.Objects;
 import java.util.ResourceBundle;
 import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlTransient;
 import org.apache.commons.io.IOUtils;
 import org.stringtemplate.v4.ST;
 
@@ -17,16 +18,20 @@ import org.stringtemplate.v4.ST;
  *
  * @author Dmitry
  */
-public class FeedItem {
+public class FeedItem implements Comparable<FeedItem> {
 
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
 	@XmlAttribute(name = "uuid")
 	private String id;
+	@XmlAttribute(name = "lastSeen")
+	private Date lastSeen;
+	@XmlAttribute(name = "sentPdf")
+	private boolean pdfSent = false;
 	private String link;
 	private String title;
 	private String itemText;
 	private String itemHtml;
-	private Date publishedDate;
+	private Date publishedDate = null;
 
 	private FeedItem() {
 	}
@@ -35,6 +40,8 @@ public class FeedItem {
 		this.id = feed.getUrl() + "@@" + entry.getUri() + "@@" + entry.getLink() + "@@" + entry.getTitle();//Unique ID
 		this.link = entry.getLink();
 		this.title = entry.getTitle();
+		this.lastSeen = new Date();
+		this.pdfSent = false;
 		publishedDate = entry.getPublishedDate();
 
 		ST textTemplate = new ST(IOUtils.toString(FeedItem.class.getResourceAsStream("templates/FeedItem.txt")), '$', '$');
@@ -62,6 +69,10 @@ public class FeedItem {
 		return hash;
 	}
 
+	public void updateLastSeen() {
+		lastSeen = new Date();
+	}
+
 	/*
 	 * Getters
 	 */
@@ -83,5 +94,23 @@ public class FeedItem {
 
 	public Date getPublishedDate() {
 		return publishedDate;
+	}
+
+	public Date getLastSeen() {
+		return lastSeen;
+	}
+
+	@XmlTransient
+	public boolean isPdfSent() {
+		return pdfSent;
+	}
+
+	public void setPdfSent(boolean pdfSent) {
+		this.pdfSent = pdfSent;
+	}
+
+	@Override
+	public int compareTo(FeedItem o) {
+		return id.compareTo(o.id);
 	}
 }

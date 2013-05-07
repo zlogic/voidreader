@@ -38,7 +38,6 @@ import org.zlogic.voidreader.handler.FeedItemHandler;
 public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, FeedItemHandler {
 
 	private static final Logger log = Logger.getLogger(EmailHandler.class.getName());
-	private static final int MAX_NAME = 100;
 	private Settings settings;
 	private Session mailSession;
 	private Store imapStore;
@@ -123,14 +122,18 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 
 			multipart.addBodyPart(body);
 
-			try {
-				BodyPart pdfBodyPart = new MimeBodyPart();
-				pdfBodyPart.setDisposition(MimeBodyPart.ATTACHMENT);
-				pdfBodyPart.setFileName("source.pdf");
-				pdfBodyPart.setDataHandler(new DataHandler(new ByteArrayDataSource(createPdf(item), "application/pdf")));
-				multipart.addBodyPart(pdfBodyPart);
-			} catch (Exception ex) {
-				log.log(Level.SEVERE, "Cannot generate PDF", ex);
+			if (!item.isPdfSent()) {
+				try {
+					BodyPart pdfBodyPart = new MimeBodyPart();
+					pdfBodyPart.setDisposition(MimeBodyPart.ATTACHMENT);
+					pdfBodyPart.setFileName("source.pdf");
+					pdfBodyPart.setDataHandler(new DataHandler(new ByteArrayDataSource(createPdf(item), "application/pdf")));
+					multipart.addBodyPart(pdfBodyPart);
+					item.setPdfSent(true);
+				} catch (Exception ex) {
+					log.log(Level.SEVERE, "Cannot generate PDF", ex);
+					item.setPdfSent(false);
+				}
 			}
 			message.setContent(multipart);
 			message.setSentDate(item.getPublishedDate());

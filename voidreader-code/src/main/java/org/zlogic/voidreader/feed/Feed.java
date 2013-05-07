@@ -10,10 +10,13 @@ import com.sun.syndication.io.FeedException;
 import java.io.IOException;
 import java.net.URL;
 import java.text.MessageFormat;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +41,7 @@ public class Feed {
 	@XmlAttribute(name = "url")
 	private String url;
 	@XmlElement(name = "item")
-	private List<FeedItem> items;
+	private Set<FeedItem> items;
 	private String title;
 	private String encoding;
 	private List<String> userTitle;
@@ -51,30 +54,33 @@ public class Feed {
 		this.userTitle = new LinkedList<>(userTitle);
 	}
 
-	protected Feed(Feed feed, List<FeedItem> items) {
+	protected Feed(Feed feed, Set<FeedItem> items) {
 		this(feed.url, feed.userTitle);
 		this.items = items;
 	}
 
-	private void handleEntries(List<Object> entries, FeedItemHandler handler) throws IOException, TimeoutException {
+	private void handleEntries(List<Object> entries, FeedItemHandler handler, Date cacheExpiryDate) throws IOException, TimeoutException {
 		if (items == null)
-			items = new LinkedList<>();
-		List<FeedItem> newItems = new LinkedList<>();
+			items = new TreeSet<>();
+		Set<FeedItem> newItems = new TreeSet<>();
 		for (Object obj : entries)
 			if (obj instanceof SyndEntry)
 				newItems.add(new FeedItem(this, (SyndEntry) obj));
 
 		//Find outdated items
-		List<FeedItem> removeItems = new LinkedList<>();
-		for (FeedItem oldItem : items)
-			if (!newItems.contains(oldItem))
-				removeItems.add(oldItem);
+		for (FeedItem oldItem : new TreeSet<>(items))
+			if (!newItems.contains(oldItem) && oldItem.getLastSeen().before(cacheExpiryDate)) {
+				items.remove(oldItem);
+			} else if (newItems.contains(oldItem)) {
+				if (!oldItem.isPdfSent())
+					items.remove(oldItem);//Replace with new item to resend pdf
+				else
+					oldItem.updateLastSeen();
+			}
 
 		// Ignore already existing items
 		newItems.removeAll(items);
 
-		//Discard outdated items
-		items.removeAll(removeItems);
 		//Add new items
 		items.addAll(newItems);
 		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());//TODO: make this configurable
@@ -115,12 +121,12 @@ public class Feed {
 		}
 	}
 
-	protected void update(FeedFetcher fetcher, FeedItemHandler handler) throws RuntimeException {
+	protected void update(FeedFetcher fetcher, FeedItemHandler handler, Date cacheExpiryDate) throws RuntimeException {
 		try {
 			SyndFeed feed = fetcher.retrieveFeed(new URL(url));
 			title = feed.getTitle();
 			encoding = feed.getEncoding();
-			handleEntries(feed.getEntries(), handler);
+			handleEntries(feed.getEntries(), handler, cacheExpiryDate);
 		} catch (FeedException | FetcherException | IOException | IllegalArgumentException | TimeoutException ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
 		}
@@ -146,7 +152,7 @@ public class Feed {
 		return title;
 	}
 
-	public List<FeedItem> getItems() {
+	public Set<FeedItem> getItems() {
 		return items;
 	}
 

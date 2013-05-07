@@ -7,6 +7,14 @@ package org.zlogic.voidreader.feed;
 import com.sun.syndication.feed.opml.Opml;
 import com.sun.syndication.feed.opml.Outline;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.CopyOption;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -18,7 +26,6 @@ import java.util.logging.Logger;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
-import javax.xml.bind.PropertyException;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -42,6 +49,7 @@ public class FeedsState {
 	private File persistenceFile;
 	private ErrorHandler errorHandler;
 	private FeedItemHandler feedItemHandler;
+	private Date cacheExpiryDate;
 
 	public FeedsState(Settings settings) {
 		this.persistenceFile = settings.getStorageFile();
@@ -60,6 +68,10 @@ public class FeedsState {
 				feedItemHandler = fileHandler;
 				break;
 		}
+
+		Calendar expiryDate = new GregorianCalendar();
+		expiryDate.add(Calendar.DAY_OF_MONTH, -settings.getCacheExpireDays());
+		cacheExpiryDate = expiryDate.getTime();
 	}
 
 	private FeedsState() {
@@ -80,12 +92,14 @@ public class FeedsState {
 		}
 	}
 
-	protected void saveDownloadedItems() throws PropertyException, JAXBException {
+	protected void saveDownloadedItems() throws JAXBException, IOException {
 		JAXBContext jaxbContext = JAXBContext.newInstance(FeedsState.class);
 		Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
 		jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
 
-		jaxbMarshaller.marshal(this, persistenceFile);
+		File tempFile = new File(persistenceFile.getParentFile(), persistenceFile.getName() + ".tmp");
+		jaxbMarshaller.marshal(this, tempFile);
+		Files.move(Paths.get(tempFile.toURI()), Paths.get(persistenceFile.toURI()), new CopyOption[]{StandardCopyOption.REPLACE_EXISTING});
 	}
 
 	public void updateOpml(Opml opml) {
@@ -151,7 +165,7 @@ public class FeedsState {
 				@Override
 				public void run() {
 					try {
-						feed.update(feedFetcher, feedItemHandler);
+						feed.update(feedFetcher, feedItemHandler, cacheExpiryDate);
 					} catch (RuntimeException ex) {
 						log.log(Level.SEVERE, null, ex);//TODO: use an error handler
 					}
@@ -169,7 +183,7 @@ public class FeedsState {
 		}
 		try {
 			saveDownloadedItems();
-		} catch (JAXBException ex) {
+		} catch (JAXBException | IOException ex) {
 			throw new RuntimeException("Error while saving feed persistence", ex);
 		}
 	}

@@ -41,6 +41,7 @@ public class Settings {
 	private InternetAddress mailFrom, mailTo;
 	private String mailUser, mailPassword;
 	private String imapStore, imapFolder;
+	private int cacheExpireDays;
 
 	public Settings(File source) throws AddressException {
 		Properties properties = new Properties();
@@ -85,6 +86,8 @@ public class Settings {
 			 Runtime.getRuntime().addShutdownHook(new Thread(deleteFile));
 			 */
 		}
+
+		cacheExpireDays = Integer.parseInt(properties.getProperty("cache.expire_days", "3"));
 	}
 
 	/**
@@ -128,6 +131,10 @@ public class Settings {
 
 	public File getStorageFile() {
 		return storageFile;
+	}
+
+	public int getCacheExpireDays() {
+		return cacheExpireDays;
 	}
 
 	public Properties getMailProperties() {
