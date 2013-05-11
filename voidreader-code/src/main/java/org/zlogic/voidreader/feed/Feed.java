@@ -72,7 +72,10 @@ public class Feed {
 			if (!newItems.contains(oldItem) && oldItem.getLastSeen() != null && oldItem.getLastSeen().before(cacheExpiryDate)) {
 				items.remove(oldItem);
 			} else if (newItems.contains(oldItem)) {
-				if (!oldItem.isPdfSent())
+				for (FeedItem newItem : newItems)
+					if (newItem.equals(oldItem))
+						newItem.setState(oldItem.getState());//Transfer state to new item
+				if (oldItem.getState() != FeedItem.State.SENT_PDF)
 					items.remove(oldItem);//Replace with new item to resend pdf
 				else
 					oldItem.updateLastSeen();

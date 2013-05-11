@@ -44,10 +44,12 @@ public class FileHandler extends AbstractPdfHandler implements ErrorHandler, Fee
 			try (PrintWriter writer = new PrintWriter(outputFile)) {
 				writer.print(item.getItemHtml());
 			}
-			if (!item.isPdfSent()) {
+			if (item.getState() != FeedItem.State.SENT_PDF) {
 				createPdf(tempDir, item);
-				item.setPdfSent(true);
+				item.setState(FeedItem.State.SENT_PDF);
 			}
+			if (item.getState() != FeedItem.State.SENT_PDF)
+				item.setState(FeedItem.State.SENT_ENTRY);
 		} catch (Exception ex) {
 			throw new RuntimeException("Cannot create temp file in " + tempDir.toString() + " for item " + item.getLink(), ex);
 		}

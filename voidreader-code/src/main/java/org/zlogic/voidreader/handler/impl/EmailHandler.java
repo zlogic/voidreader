@@ -122,31 +122,37 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 
 			multipart.addBodyPart(body);
 
-			if (!item.isPdfSent()) {
+			FeedItem.State newState = item.getState();
+			if (item.getState() != FeedItem.State.SENT_PDF) {
 				try {
 					BodyPart pdfBodyPart = new MimeBodyPart();
 					pdfBodyPart.setDisposition(MimeBodyPart.ATTACHMENT);
 					pdfBodyPart.setFileName("source.pdf");
 					pdfBodyPart.setDataHandler(new DataHandler(new ByteArrayDataSource(createPdf(item), "application/pdf")));
 					multipart.addBodyPart(pdfBodyPart);
-					item.setPdfSent(true);
+					newState = FeedItem.State.SENT_PDF;
 				} catch (Exception ex) {
 					log.log(Level.SEVERE, "Cannot generate PDF", ex);
-					item.setPdfSent(false);
 				}
 			}
 			message.setContent(multipart);
 			message.setSentDate(item.getPublishedDate());
-			if (settings.getHandler() == Settings.Handler.SMTP) {
-				Transport.send(message);
-			} else if (settings.getHandler() == Settings.Handler.IMAP) {
-				synchronized (imapStore) {
-					if (!imapStore.isConnected())
-						imapStore.connect();
+			boolean pdfFailedAgain = newState == FeedItem.State.SENT_ENTRY && item.getState() == FeedItem.State.SENT_ENTRY;
+			if (!pdfFailedAgain) {
+				if (settings.getHandler() == Settings.Handler.SMTP) {
+					Transport.send(message);
+				} else if (settings.getHandler() == Settings.Handler.IMAP) {
+					synchronized (imapStore) {
+						if (!imapStore.isConnected())
+							imapStore.connect();
+					}
+					Folder folder = imapStore.getFolder(settings.getImapFolder());
+					folder.appendMessages(new Message[]{message});
 				}
-				Folder folder = imapStore.getFolder(settings.getImapFolder());
-				folder.appendMessages(new Message[]{message});
 			}
+			if (newState != FeedItem.State.SENT_PDF)
+				newState = FeedItem.State.SENT_ENTRY;
+			item.setState(newState);
 		} catch (MessagingException | UnsupportedEncodingException ex) {
 			throw new RuntimeException("Cannot send or prepare email message for item " + item.getLink(), ex);
 		}

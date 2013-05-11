@@ -21,12 +21,17 @@ import org.stringtemplate.v4.ST;
 public class FeedItem implements Comparable<FeedItem> {
 
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
+
+	public enum State {
+
+		SENT_NOTHING, SENT_ENTRY, SENT_PDF
+	};
 	@XmlAttribute(name = "uuid")
 	private String id;
 	@XmlAttribute(name = "lastSeen")
 	private Date lastSeen;
-	@XmlAttribute(name = "sentPdf")
-	private boolean pdfSent = false;
+	@XmlAttribute(name = "state")
+	private State state = State.SENT_NOTHING;
 	private String link;
 	private String title;
 	private String itemText;
@@ -41,7 +46,7 @@ public class FeedItem implements Comparable<FeedItem> {
 		this.link = entry.getLink();
 		this.title = entry.getTitle();
 		this.lastSeen = new Date();
-		this.pdfSent = false;
+		this.state = State.SENT_NOTHING;
 		publishedDate = entry.getPublishedDate();
 
 		ST textTemplate = new ST(IOUtils.toString(FeedItem.class.getResourceAsStream("templates/FeedItem.txt")), '$', '$');
@@ -101,12 +106,12 @@ public class FeedItem implements Comparable<FeedItem> {
 	}
 
 	@XmlTransient
-	public boolean isPdfSent() {
-		return pdfSent;
+	public State getState() {
+		return state;
 	}
 
-	public void setPdfSent(boolean pdfSent) {
-		this.pdfSent = pdfSent;
+	public void setState(State state) {
+		this.state = state;
 	}
 
 	@Override
