@@ -1,6 +1,7 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * Void Reader project.
+ * Licensed under Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0
+ * Author: Dmitry Zolotukhin <zlogic@gmail.com>
  */
 package org.zlogic.voidreader.handler.impl;
 
@@ -19,21 +20,37 @@ import org.xhtmlrenderer.render.FSFont;
 import org.zlogic.voidreader.fonts.FontsList;
 
 /**
+ * Abstract class with PDF generation functions. Can be inherited by other
+ * handlers to provide PDF generations features.
  *
- * @author Dmitry
+ * @author Dmitry Zolotukhin <zlogic@gmail.com>
  */
 public abstract class AbstractPdfHandler {
 
-	public AbstractPdfHandler() {
-	}
+	/**
+	 * The list of fonts included with this application
+	 */
+	private FontsList fontsList = new FontsList();
 
+	/**
+	 * Renders an XHTML page to PDF
+	 *
+	 * @param html the page XHTML contents
+	 * @param baseUrl the page base URL
+	 * @return an ITextRenderer which can be used to produce the final PDF
+	 * document
+	 * @throws IOException when fonts cannot be located
+	 * @throws DocumentException when an error prevents the PDF document from
+	 * being generated
+	 */
 	protected ITextRenderer renderPdf(String html, String baseUrl) throws IOException, DocumentException {
 		ITextRenderer renderer = new ITextRenderer();
 
+		//Replace with custom font resolver
 		ITextFontResolver fontResolver = new ITextFontResolver(renderer.getSharedContext()) {
 			@Override
 			public org.xhtmlrenderer.render.FSFont resolveFont(org.xhtmlrenderer.layout.SharedContext renderingContext, org.xhtmlrenderer.css.value.FontSpecification spec) {
-				spec.families = new String[]{"Open Sans"};
+				spec.families = new String[]{"Open Sans"}; //NOI18N
 				FSFont font = super.resolveFont(renderingContext, spec);
 				return font;
 			}
@@ -41,20 +58,31 @@ public abstract class AbstractPdfHandler {
 		renderer.getSharedContext().setFontResolver(fontResolver);
 
 		//Override fonts
-		for (URL url : new FontsList().getFontUrls()) {
-			if (url.toExternalForm().endsWith(".ttf"))
+		for (URL url : fontsList.getFontUrls())
+			if (url.toExternalForm().endsWith(".ttf")) //NOI18N
 				fontResolver.addFont(url.toExternalForm(), BaseFont.IDENTITY_H, true);
-		}
+
 		renderer.setDocumentFromString(html, baseUrl);
 		renderer.layout();
 		return renderer;
 	}
 
+	/**
+	 * Downloads a feed item's URL with Flying Saucer, converts to XHTML and
+	 * performs a tag cleanup, and finally renders the result to PDF.
+	 *
+	 * @param url the URL to download
+	 * @return an ITextRenderer which can be used to produce the final PDF
+	 * document
+	 * @throws IOException when fonts cannot be located
+	 * @throws DocumentException when an error prevents the PDF document from
+	 * being generated
+	 */
 	protected ITextRenderer downloadRenderPdf(String url) throws IOException, DocumentException {
 		Document htmlDocument = Jsoup.connect(url).followRedirects(true).timeout(60000).get();//TODO: make timeout configurable
 		Cleaner cleaner = new Cleaner(Whitelist.relaxed().preserveRelativeLinks(false)
-				.addTags("span")
-				.addAttributes("span", "id", "style"));
+				.addTags("span") //NOI18N
+				.addAttributes("span", "id", "style")); //NOI18N
 		Document htmlDocumentClean = cleaner.clean(htmlDocument);
 		htmlDocumentClean.setBaseUri(url);
 		htmlDocumentClean.outputSettings().prettyPrint(false);

@@ -1,6 +1,7 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * Void Reader project.
+ * Licensed under Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0
+ * Author: Dmitry Zolotukhin <zlogic@gmail.com>
  */
 package org.zlogic.voidreader;
 
@@ -11,13 +12,20 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
+ * App launcher/initialiser
  *
- * @author Dmitry
+ * @author Dmitry Zolotukhin <zlogic@gmail.com>
  */
 public class Main {
 
+	/**
+	 * Localization messages
+	 */
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
-	private static final Logger log = Logger.getLogger(FeedDownloader.class.getName());
+	/**
+	 * The logger
+	 */
+	private static final Logger log = Logger.getLogger(Main.class.getName());
 
 	/**
 	 * Performs initialization of application's dependencies
@@ -37,6 +45,12 @@ public class Main {
 		}
 	}
 
+	/**
+	 * Application main method. Requires exactly one argument: the configuration
+	 * file pathname
+	 *
+	 * @param args the application arguments
+	 */
 	public static void main(String[] args) {
 		new Main().initApplication();
 		/*
@@ -48,7 +62,7 @@ public class Main {
 				downloader.downloadFeeds();
 			}
 		} catch (Throwable thr) {
-			log.log(Level.SEVERE, "Caught exception", thr);
+			log.log(Level.SEVERE, messages.getString("CAUGHT_EXCEPTION"), thr);
 		}
 	}
 }

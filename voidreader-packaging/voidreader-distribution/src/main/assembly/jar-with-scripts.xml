@@ -25,6 +25,7 @@
 			<outputDirectory>/</outputDirectory>
 			<includes>
 				<include>**/*.properties</include>
+				<include>**/README</include>
 			</includes>
 			<fileMode>0644</fileMode>
 		</fileSet>

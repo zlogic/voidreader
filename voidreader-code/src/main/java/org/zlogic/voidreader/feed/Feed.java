@@ -1,6 +1,7 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * Void Reader project.
+ * Licensed under Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0
+ * Author: Dmitry Zolotukhin <zlogic@gmail.com>
  */
 package org.zlogic.voidreader.feed;
 
@@ -31,34 +32,87 @@ import org.rometools.fetcher.FetcherException;
 import org.zlogic.voidreader.handler.FeedItemHandler;
 
 /**
+ * A single RSS feed representation (with a cached list of feed items). Contains
+ * annotations used by JAXB marshaling/unmarshaling and can be persisted in XML
+ * form.
  *
- * @author Dmitry
+ * Used to keep track of already downloaded/sent items.
+ *
+ * @author Dmitry Zolotukhin <zlogic@gmail.com>
  */
 public class Feed {
 
+	/**
+	 * Localization messages
+	 */
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
+	/**
+	 * The logger
+	 */
 	private static final Logger log = Logger.getLogger(Feed.class.getName());
+	/**
+	 * The feed URL
+	 */
 	@XmlAttribute(name = "url")
 	private String url;
+	/**
+	 * The feed items
+	 */
 	@XmlElement(name = "item")
 	private Set<FeedItem> items;
+	/**
+	 * The feed title, as presented in the RSS download results
+	 */
 	private String title;
+	/**
+	 * The feed encoding
+	 */
 	private String encoding;
+	/**
+	 * The feed title, as presented in the OPML file
+	 */
 	private List<String> userTitle;
 
+	/**
+	 * Empty constructor for JAXB
+	 */
 	private Feed() {
 	}
 
+	/**
+	 * Creates the feed from data extracted form OPML
+	 *
+	 * @param url the feed URL
+	 * @param userTitle the feed title as presented in the OPML
+	 */
 	protected Feed(String url, List<String> userTitle) {
 		this.url = url;
 		this.userTitle = new LinkedList<>(userTitle);
 	}
 
+	/**
+	 * Constructs a feed based on an existing feed (e.g. loaded from OPML) and a
+	 * list of feed items
+	 *
+	 * @param feed the existing feed
+	 * @param items the feed items
+	 */
 	protected Feed(Feed feed, Set<FeedItem> items) {
 		this(feed.url, feed.userTitle);
 		this.items = items;
 	}
 
+	/**
+	 * Handles downloaded feed entries
+	 *
+	 * @param entries the downloaded entries
+	 * @param handler the feed item handler
+	 * @param cacheExpiryDate the date after which feed items expire and can be
+	 * removed
+	 * @throws IOException if FeedItem constructor fails (e.g. unable to
+	 * generate HTML based on the template)
+	 * @throws TimeoutException if the task took too long to complete
+	 */
 	private void handleEntries(List<Object> entries, FeedItemHandler handler, Date cacheExpiryDate) throws IOException, TimeoutException {
 		if (items == null)
 			items = new TreeSet<>();
@@ -105,7 +159,7 @@ public class Feed {
 					try {
 						handler.handle(feed, item);
 					} catch (RuntimeException ex) {
-						log.log(Level.SEVERE, "Error handling feed item" + item, ex);
+						log.log(Level.SEVERE,MessageFormat.format(messages.getString("ERROR_HANDLING_FEED_ITEM"), new Object[] {item}),ex);
 						synchronized (items) {
 							items.remove(item);
 						}
@@ -117,13 +171,22 @@ public class Feed {
 		try {
 			if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
 				//TODO: make timeout configurable
-				throw new TimeoutException("Timed out waiting for executor");
+				throw new TimeoutException(messages.getString("TIMED_OUT_WAITING_FOR_EXECUTOR"));
 			}
 		} catch (InterruptedException ex) {
 			throw new RuntimeException(ex);
 		}
 	}
 
+	/**
+	 * Downloads the feed and handles new or changed items
+	 *
+	 * @param fetcher the ROME FeedFetcher
+	 * @param handler the handler for feed items
+	 * @param cacheExpiryDate the date after which feed items expire and can be
+	 * removed
+	 * @throws RuntimeException if any error occur while handling this feed
+	 */
 	protected void update(FeedFetcher fetcher, FeedItemHandler handler, Date cacheExpiryDate) throws RuntimeException {
 		try {
 			SyndFeed feed = fetcher.retrieveFeed(new URL(url));
@@ -153,23 +216,48 @@ public class Feed {
 	/*
 	 * Getters
 	 */
+	/**
+	 * Returns the feed title, as presented in the RSS download results
+	 *
+	 * @return the feed title, as presented in the RSS download results
+	 */
 	public String getTitle() {
 		return title;
 	}
 
+	/**
+	 * Returns the feed items
+	 *
+	 * @return the feed items
+	 */
 	public Set<FeedItem> getItems() {
 		return items;
 	}
 
+	/**
+	 * Returns the feed title, as presented in the OPML file
+	 *
+	 * @return the feed title, as presented in the OPML file
+	 */
 	public String getUserTitle() {
 		return StringUtils.join(userTitle, messages.getString("TITLE_SEPARATOR"));
 	}
 
+	/**
+	 * Returns the feed URL
+	 *
+	 * @return the feed URL
+	 */
 	public String getUrl() {
 		return url;
 	}
 
+	/**
+	 * Returns the feed encoding
+	 *
+	 * @return the feed encoding
+	 */
 	public String getEncoding() {
-		return (encoding != null && !encoding.isEmpty()) ? encoding : System.getProperty("file.encoding");
+		return (encoding != null && !encoding.isEmpty()) ? encoding : System.getProperty("file.encoding"); //NOI18N
 	}
 }
