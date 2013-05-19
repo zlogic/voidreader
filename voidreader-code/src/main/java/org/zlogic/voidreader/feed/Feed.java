@@ -109,11 +109,13 @@ public class Feed {
 	 * @param handler the feed item handler
 	 * @param cacheExpiryDate the date after which feed items expire and can be
 	 * removed
+	 * @param maxRunSeconds the maximum time application can run before being
+	 * forcefully terminated
 	 * @throws IOException if FeedItem constructor fails (e.g. unable to
 	 * generate HTML based on the template)
 	 * @throws TimeoutException if the task took too long to complete
 	 */
-	private void handleEntries(List<Object> entries, FeedItemHandler handler, Date cacheExpiryDate) throws IOException, TimeoutException {
+	private void handleEntries(List<Object> entries, FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) throws IOException, TimeoutException {
 		if (items == null)
 			items = new TreeSet<>();
 		Set<FeedItem> newItems = new TreeSet<>();
@@ -159,7 +161,7 @@ public class Feed {
 					try {
 						handler.handle(feed, item);
 					} catch (RuntimeException ex) {
-						log.log(Level.SEVERE,MessageFormat.format(messages.getString("ERROR_HANDLING_FEED_ITEM"), new Object[] {item}),ex);
+						log.log(Level.SEVERE, MessageFormat.format(messages.getString("ERROR_HANDLING_FEED_ITEM"), new Object[]{item}), ex);
 						synchronized (items) {
 							items.remove(item);
 						}
@@ -169,8 +171,7 @@ public class Feed {
 		}
 		executor.shutdown();
 		try {
-			if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
-				//TODO: make timeout configurable
+			if (!executor.awaitTermination(maxRunSeconds > 0 ? maxRunSeconds : Long.MAX_VALUE, TimeUnit.SECONDS)) {
 				throw new TimeoutException(messages.getString("TIMED_OUT_WAITING_FOR_EXECUTOR"));
 			}
 		} catch (InterruptedException ex) {
@@ -185,14 +186,16 @@ public class Feed {
 	 * @param handler the handler for feed items
 	 * @param cacheExpiryDate the date after which feed items expire and can be
 	 * removed
+	 * @param maxRunSeconds the maximum time application can run before being
+	 * forcefully terminated
 	 * @throws RuntimeException if any error occur while handling this feed
 	 */
-	protected void update(FeedFetcher fetcher, FeedItemHandler handler, Date cacheExpiryDate) throws RuntimeException {
+	protected void update(FeedFetcher fetcher, FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) throws RuntimeException {
 		try {
 			SyndFeed feed = fetcher.retrieveFeed(new URL(url));
 			title = feed.getTitle();
 			encoding = feed.getEncoding();
-			handleEntries(feed.getEntries(), handler, cacheExpiryDate);
+			handleEntries(feed.getEntries(), handler, cacheExpiryDate, maxRunSeconds);
 		} catch (FeedException | FetcherException | IOException | IllegalArgumentException | TimeoutException ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
 		} catch (Exception ex) {

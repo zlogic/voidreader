@@ -20,6 +20,8 @@ import java.util.GregorianCalendar;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -79,6 +81,10 @@ public class FeedsState {
 	 * The date after which feed items expire and can be removed
 	 */
 	private Date cacheExpiryDate;
+	/**
+	 * Maximum time application can run before being forcefully terminated
+	 */
+	private int maxRunSeconds;
 
 	/**
 	 * Constructor for FeedsState
@@ -106,6 +112,7 @@ public class FeedsState {
 		Calendar expiryDate = new GregorianCalendar();
 		expiryDate.add(Calendar.DAY_OF_MONTH, -settings.getCacheExpireDays());
 		cacheExpiryDate = expiryDate.getTime();
+		this.maxRunSeconds = settings.getMaxRunSeconds();
 	}
 
 	/**
@@ -140,16 +147,18 @@ public class FeedsState {
 	 * @throws RuntimeException if save failed
 	 */
 	protected void saveDownloadedItems() throws RuntimeException {
-		try {
-			JAXBContext jaxbContext = JAXBContext.newInstance(FeedsState.class);
-			Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
-			jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+		synchronized (this) {
+			try {
+				JAXBContext jaxbContext = JAXBContext.newInstance(FeedsState.class);
+				Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
+				jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
 
-			File tempFile = new File(persistenceFile.getParentFile(), persistenceFile.getName() + ".tmp"); //NOI18N
-			jaxbMarshaller.marshal(this, tempFile);
-			Files.move(Paths.get(tempFile.toURI()), Paths.get(persistenceFile.toURI()), new CopyOption[]{StandardCopyOption.REPLACE_EXISTING});
-		} catch (JAXBException | IOException ex) {
-			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_SAVE_FEEDS_TO_FILE"), new Object[]{persistenceFile.toString()}), ex);
+				File tempFile = new File(persistenceFile.getParentFile(), persistenceFile.getName() + ".tmp"); //NOI18N
+				jaxbMarshaller.marshal(this, tempFile);
+				Files.move(Paths.get(tempFile.toURI()), Paths.get(persistenceFile.toURI()), new CopyOption[]{StandardCopyOption.REPLACE_EXISTING});
+			} catch (JAXBException | IOException ex) {
+				throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_SAVE_FEEDS_TO_FILE"), new Object[]{persistenceFile.toString()}), ex);
+			}
 		}
 	}
 
@@ -219,6 +228,31 @@ public class FeedsState {
 	}
 
 	/**
+	 * Starts the shutdown watchdog to terminate the application if it's running
+	 * too long
+	 *
+	 * @return the timer which can be cancelled if necessary
+	 */
+	private Timer scheduleShutdownTask() {
+		if (maxRunSeconds <= 0)
+			return null;
+		Timer terminateTimer = new Timer("TerminateTimer", true); //NOI18N
+		TimerTask terminateTimerTask = new TimerTask() {
+			@Override
+			public void run() {
+				log.severe(messages.getString("APPLICATION_RAN_OUT_OF_TIME_FORCING_SHUTDOWN"));
+				saveDownloadedItems();
+				System.exit(-1);
+			}
+		};
+		Calendar terminateDate = new GregorianCalendar();
+		terminateDate.add(Calendar.SECOND, (int) maxRunSeconds);
+
+		terminateTimer.schedule(terminateTimerTask, terminateDate.getTime());
+		return terminateTimer;
+	}
+
+	/**
 	 * Downloads the latest feed data and handles new and updated items
 	 *
 	 * @param feedFetcher the ROME FeedFetcher instance
@@ -228,6 +262,7 @@ public class FeedsState {
 	 */
 	public void update(FeedFetcher feedFetcher) throws RuntimeException, TimeoutException {
 		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4);//TODO: make this configurable
+		Timer terminateTimer = scheduleShutdownTask();
 		for (Feed feed : feeds) {
 			executor.submit(new Runnable() {
 				private FeedFetcher feedFetcher;
@@ -242,7 +277,7 @@ public class FeedsState {
 				@Override
 				public void run() {
 					try {
-						feed.update(feedFetcher, feedItemHandler, cacheExpiryDate);
+						feed.update(feedFetcher, feedItemHandler, cacheExpiryDate, maxRunSeconds);
 					} catch (RuntimeException ex) {
 						log.log(Level.SEVERE, null, ex);//TODO: use an error handler
 					}
@@ -251,13 +286,15 @@ public class FeedsState {
 		}
 		executor.shutdown();
 		try {
-			if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
-				//TODO: make timeout configurable
+			if (!executor.awaitTermination(maxRunSeconds > 0 ? maxRunSeconds : Long.MAX_VALUE, TimeUnit.SECONDS)) {
 				throw new TimeoutException(messages.getString("TIMED_OUT_WAITING_FOR_EXECUTOR"));
 			}
 		} catch (InterruptedException ex) {
+			saveDownloadedItems();
 			throw new RuntimeException(ex);
 		}
+		if (terminateTimer != null)
+			terminateTimer.cancel();
 		saveDownloadedItems();
 	}
 }

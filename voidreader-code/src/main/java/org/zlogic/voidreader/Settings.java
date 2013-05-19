@@ -95,6 +95,10 @@ public class Settings {
 	 * Days to keep items after they're removed from the feed
 	 */
 	private int cacheExpireDays;
+	/**
+	 * Maximum time application can run before being forcefully terminated
+	 */
+	private int maxRunSeconds;
 
 	/**
 	 * Constructs settings by loading a settings file
@@ -126,6 +130,7 @@ public class Settings {
 		imapFolder = properties.getProperty("email.imap.folder"); //NOI18N
 
 		cacheExpireDays = Integer.parseInt(properties.getProperty("cache.expire_days", "3")); //NOI18N
+		maxRunSeconds = Integer.parseInt(properties.getProperty("core.max_run_seconds", "-1")); //NOI18N
 	}
 
 	/**
@@ -162,6 +167,17 @@ public class Settings {
 	 */
 	public int getCacheExpireDays() {
 		return cacheExpireDays;
+	}
+
+	/**
+	 * Returns the maximum time application can run before being forcefully
+	 * terminated
+	 *
+	 * @return the maximum time application can run before being forcefully
+	 * terminated
+	 */
+	public int getMaxRunSeconds() {
+		return maxRunSeconds;
 	}
 
 	/**
