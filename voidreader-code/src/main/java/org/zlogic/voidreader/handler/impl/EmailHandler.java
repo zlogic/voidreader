@@ -1,7 +1,7 @@
 /*
  * Void Reader project.
  * Licensed under Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0
- * Author: Dmitry Zolotukhin <zlogic@gmail.com>
+ * Author: Dmitry Zolotukhin <zlogic42@outlook.com>
  */
 package org.zlogic.voidreader.handler.impl;
 
@@ -37,7 +37,8 @@ import org.zlogic.voidreader.handler.FeedItemHandler;
  * FeedItemHandler and ErrorHandler implementation which sends an email for
  * every new feed item. Supports SMTP and IMAP upload protocols.
  *
- * @author Dmitry Zolotukhin <zlogic@gmail.com>
+ * @author Dmitry Zolotukhin <a
+ * href="mailto:zlogic42@outlook.com">zlogic42@outlook.com</a>
  */
 public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, FeedItemHandler {
 

@@ -12,7 +12,7 @@ import org.apache.commons.io.IOUtils;
 /**
  * Helper class to retrieve the list of fonts included in this package
  *
- * @author Dmitry Zolotukhin <zlogic@gmail.com>
+ * @author Dmitry Zolotukhin <a href="mailto:zlogic42@outlook.com">zlogic42@outlook.com</a>
  */
 public class FontsList {
 

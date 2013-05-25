@@ -1,7 +1,7 @@
 /*
  * Void Reader project.
  * Licensed under Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0
- * Author: Dmitry Zolotukhin <zlogic@gmail.com>
+ * Author: Dmitry Zolotukhin <zlogic42@outlook.com>
  */
 package org.zlogic.voidreader.handler;
 
@@ -11,7 +11,8 @@ import org.zlogic.voidreader.feed.FeedItem;
 /**
  * Interface for classes which can handle a new or changed feed item.
  *
- * @author Dmitry Zolotukhin <zlogic@gmail.com>
+ * @author Dmitry Zolotukhin <a
+ * href="mailto:zlogic42@outlook.com">zlogic42@outlook.com</a>
  */
 public interface FeedItemHandler {
 
