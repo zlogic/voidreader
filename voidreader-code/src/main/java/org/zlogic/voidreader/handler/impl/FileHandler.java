@@ -19,6 +19,7 @@ import java.text.MessageFormat;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.feed.Feed;
 import org.zlogic.voidreader.feed.FeedItem;
 import org.zlogic.voidreader.handler.ErrorHandler;
@@ -53,17 +54,21 @@ public class FileHandler extends AbstractPdfHandler implements ErrorHandler, Fee
 	 * Path where downloaded items will be saved
 	 */
 	private File feedItemsDir;
+	/**
+	 * The application global settings
+	 */
+	private Settings settings;
 
 	/**
 	 * Constructor for FileHandler.
 	 *
 	 * WARNING: Deletes all previously downloaded items!
 	 *
-	 * @param feedItemsDir the directory where to download feed items and save
-	 * PDFs
+	 * @param settings the application global settings
 	 */
-	public FileHandler(File feedItemsDir) {
-		this.feedItemsDir = feedItemsDir;
+	public FileHandler(Settings settings) {
+		this.feedItemsDir = settings.getTempDir();
+		this.settings = settings;
 		try {
 			deleteTree(Paths.get(feedItemsDir.toURI()));
 		} catch (IOException ex) {
@@ -134,7 +139,7 @@ public class FileHandler extends AbstractPdfHandler implements ErrorHandler, Fee
 			try (PrintWriter writer = new PrintWriter(outputFile)) {
 				writer.print(item.getItemHtml());
 			}
-			if (item.getState() != FeedItem.State.SENT_PDF) {
+			if (item.getState() != FeedItem.State.SENT_PDF && settings.isEnablePdf()) {
 				createPdf(tempDir, item);
 				item.setState(FeedItem.State.SENT_PDF);
 			}

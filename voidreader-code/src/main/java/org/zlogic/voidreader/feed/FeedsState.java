@@ -104,7 +104,7 @@ public class FeedsState {
 				feedItemHandler = emailHandler;
 				break;
 			case FILE:
-				FileHandler fileHandler = new FileHandler(settings.getTempDir());
+				FileHandler fileHandler = new FileHandler(settings);
 				errorHandler = fileHandler;
 				feedItemHandler = fileHandler;
 				break;

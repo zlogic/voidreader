@@ -153,7 +153,7 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 			multipart.addBodyPart(body);
 
 			FeedItem.State newState = item.getState();
-			if (item.getState() != FeedItem.State.SENT_PDF) {
+			if (item.getState() != FeedItem.State.SENT_PDF && settings.isEnablePdf()) {
 				try {
 					BodyPart pdfBodyPart = new MimeBodyPart();
 					pdfBodyPart.setDisposition(MimeBodyPart.ATTACHMENT);

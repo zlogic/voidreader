@@ -100,6 +100,10 @@ public class Settings {
 	 * Maximum time application can run before being forcefully terminated
 	 */
 	private int maxRunSeconds;
+	/**
+	 * Enable downloading and sending of PDF copies of original articles
+	 */
+	private boolean enablePdf;
 
 	/**
 	 * Constructs settings by loading a settings file
@@ -132,6 +136,7 @@ public class Settings {
 
 		cacheExpireDays = Integer.parseInt(properties.getProperty("cache.expire_days", "3")); //NOI18N
 		maxRunSeconds = Integer.parseInt(properties.getProperty("core.max_run_seconds", "-1")); //NOI18N
+		enablePdf = Boolean.parseBoolean(properties.getProperty("pdf.enable", "true")); //NOI18N
 	}
 
 	/**
@@ -179,6 +184,17 @@ public class Settings {
 	 */
 	public int getMaxRunSeconds() {
 		return maxRunSeconds;
+	}
+
+	/**
+	 * Returns true id downloading and sending of PDF copies of original
+	 * articles should be enabled
+	 *
+	 * @return true id downloading and sending of PDF copies of original
+	 * articles should be enabled
+	 */
+	public boolean isEnablePdf() {
+		return enablePdf;
 	}
 
 	/**
