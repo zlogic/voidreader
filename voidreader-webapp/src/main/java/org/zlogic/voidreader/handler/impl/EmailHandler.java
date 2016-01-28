@@ -47,7 +47,7 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 	 */
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
 	/**
-	 * The application global settings
+	 * The user settings
 	 */
 	private final Settings settings;
 	/**
@@ -117,7 +117,7 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 				}
 			}
 			message.setContent(multipart);
-			if(item.getPublishedDate()!=null)
+			if (item.getPublishedDate() != null)
 				message.setSentDate(item.getPublishedDate());
 			boolean pdfFailedAgain = newState == FeedItem.State.SENT_ENTRY && item.getState() == FeedItem.State.SENT_ENTRY;
 			if (!pdfFailedAgain)

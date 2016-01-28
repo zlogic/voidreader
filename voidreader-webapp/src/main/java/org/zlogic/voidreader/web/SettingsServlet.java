@@ -1,7 +1,6 @@
 package org.zlogic.voidreader.web;
 
-import com.googlecode.objectify.Key;
-import static com.googlecode.objectify.ObjectifyService.ofy;
+import com.google.appengine.api.datastore.EntityNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Properties;
@@ -10,7 +9,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import org.zlogic.voidreader.ObjectifyInitializer;
 import org.zlogic.voidreader.Settings;
 
 /**
@@ -24,10 +22,6 @@ public class SettingsServlet extends HttpServlet {
 	 * Localization messages
 	 */
 	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
-	/**
-	 * Enforces ObjectifyInitializer to run
-	 */
-	private final ObjectifyInitializer oi = new ObjectifyInitializer();
 
 	/**
 	 * Serves an HTTP POST request.
@@ -42,11 +36,13 @@ public class SettingsServlet extends HttpServlet {
 		response.setCharacterEncoding("utf-8"); //NOI18N
 		response.setContentType("text/plain; charset=UTF-8"); //NOI18N
 		request.setCharacterEncoding("utf-8"); //NOI18N
-		Settings settings = ofy().load().now(Key.create(Settings.class, request.getUserPrincipal().getName()));
-		if (settings == null)
+		try {
+			Settings settings = Settings.load(request.getUserPrincipal().getName());
+			try (PrintWriter pw = new PrintWriter(response.getOutputStream())) {
+				pw.print(settings.toString());
+			}
+		} catch (EntityNotFoundException ex) {
 			throw new ServletException(messages.getString("YOU_NEED_TO_CONFIGURE_VOID_READER_FIRST"));
-		try (PrintWriter pw = new PrintWriter(response.getOutputStream())) {
-			pw.print(settings.toString());
 		}
 	}
 
@@ -67,7 +63,7 @@ public class SettingsServlet extends HttpServlet {
 		for (Object key : request.getParameterMap().keySet())
 			properties.put(key, request.getParameter(key.toString()));
 		Settings settings = new Settings(request.getUserPrincipal().getName(), properties);
-		ofy().save().entity(settings).now();
+		settings.save();
 		try (PrintWriter pw = new PrintWriter(response.getOutputStream())) {
 			pw.print(settings.toString());
 		}

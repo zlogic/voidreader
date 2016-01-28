@@ -6,9 +6,13 @@
 package org.zlogic.voidreader.feed;
 
 import com.google.appengine.api.ThreadManager;
-import com.googlecode.objectify.annotation.Entity;
-import com.googlecode.objectify.annotation.Id;
-import com.googlecode.objectify.annotation.Ignore;
+import com.google.appengine.api.datastore.DatastoreService;
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.Entity;
+import com.google.appengine.api.datastore.EntityNotFoundException;
+import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.PreparedQuery;
+import com.google.appengine.api.datastore.Query;
 import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.SyndFeedInput;
@@ -33,6 +37,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.handler.FeedItemHandler;
 
 /**
@@ -44,7 +49,6 @@ import org.zlogic.voidreader.handler.FeedItemHandler;
  *
  * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
-@Entity
 public class Feed {
 
 	/**
@@ -56,9 +60,12 @@ public class Feed {
 	 */
 	private static final Logger log = LoggerFactory.getLogger(Feed.class);
 	/**
+	 * The DatastoreService instance
+	 */
+	private static final DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+	/**
 	 * The feed URL
 	 */
-	@Id
 	private String url;
 	/**
 	 * The feed items
@@ -67,45 +74,118 @@ public class Feed {
 	/**
 	 * The feed title, as presented in the RSS download results
 	 */
-	@Ignore
 	private String title;
 	/**
 	 * The feed encoding
 	 */
-	@Ignore
 	private String encoding;
 	/**
 	 * The feed title, as presented in the OPML file
 	 */
 	private List<String> userTitle;
+	/**
+	 * The user settings
+	 */
+	private final Settings settings;
 
 	/**
 	 * Empty constructor
 	 */
 	private Feed() {
+		settings = null;
 	}
 
 	/**
-	 * Creates the feed from data extracted form OPML
+	 * Creates the feed from data extracted from OPML
 	 *
 	 * @param url the feed URL
 	 * @param userTitle the feed title as presented in the OPML
+	 * @param settings the user Settings
 	 */
-	protected Feed(String url, List<String> userTitle) {
+	protected Feed(String url, List<String> userTitle, Settings settings) {
 		this.url = url;
 		this.userTitle = new LinkedList<>(userTitle);
+		this.items = new HashSet<>();
+		this.settings = settings;
 	}
 
 	/**
-	 * Constructs a feed based on an existing feed (e.g. loaded from OPML) and a
-	 * list of feed items
 	 *
-	 * @param feed the existing feed
-	 * @param items the feed items
+	 * Constructs a Feed instance from a Datastore Entity.
+	 *
+	 * @param entity the Datastore Entity
+	 * @param settings the user Settings
 	 */
-	protected Feed(Feed feed, Set<FeedItem> items) {
-		this(feed.url, feed.userTitle);
-		this.items = items;
+	private Feed(Entity entity, Settings settings) {
+		this.url = entity.getKey().getName();
+		this.settings = settings;
+	}
+
+	/**
+	 * Loads all Feed instances for user from Datastore.
+	 *
+	 * @param settings the user Settings
+	 * @return the list of all Feed instances for user from Datastore
+	 */
+	public static List<Feed> load(Settings settings) {
+		List<Feed> feeds = new LinkedList<>();
+		Query query = new Query(Feed.class.getSimpleName(), settings.getKey());
+		PreparedQuery preparedQuery = datastore.prepare(query);
+		for (Entity result : preparedQuery.asIterable()) {
+			Feed feed = new Feed(result, settings);
+			feed.items = FeedItem.load(feed);
+			feeds.add(feed);
+		}
+		return feeds;
+	}
+
+	/**
+	 * Loads a Feed instance for user from Datastore.
+	 *
+	 * @param key the feed key
+	 * @param settings the user Settings
+	 * @return the feed
+	 * @throws EntityNotFoundException if not Feed instance for key is found
+	 */
+	public static Feed load(Key key, Settings settings) throws EntityNotFoundException {
+		return new Feed(datastore.get(key), settings);
+	}
+
+	/**
+	 * Sets feed items from another Feed.
+	 *
+	 * @param feed the feed from which to copy feed items
+	 */
+	public void useItemsFrom(Feed feed) {
+		items = feed.items;
+	}
+
+	/**
+	 * Saves this Feed instance to Datastore. Doesn't process FeedItems.
+	 */
+	public void save() {
+		Entity feed = new Entity(getKey());
+		datastore.put(feed);
+	}
+
+	/**
+	 * Returns the key for a Feed based on its URL.
+	 *
+	 * @param settings the user Settings
+	 * @param url the Feed URL
+	 * @return the key for a Feed based on its URL
+	 */
+	public static Key getKey(Settings settings, String url) {
+		return new Entity(Feed.class.getSimpleName(), url, settings.getKey()).getKey();
+	}
+
+	/**
+	 * Returns the key for this Feed instance.
+	 *
+	 * @return the key for this Feed instance
+	 */
+	public Key getKey() {
+		return getKey(settings, url);
 	}
 
 	/**
@@ -122,8 +202,6 @@ public class Feed {
 	 * @throws TimeoutException if the task took too long to complete
 	 */
 	private void handleEntries(List<SyndEntry> entries, FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) throws IOException, TimeoutException {
-		if (items == null)
-			items = new HashSet<>();
 		Set<FeedItem> newItems = new HashSet<>();
 		for (SyndEntry entry : entries)
 			newItems.add(new FeedItem(this, entry));
@@ -131,15 +209,20 @@ public class Feed {
 		//Find outdated items
 		for (FeedItem oldItem : new HashSet<>(items))
 			if (!newItems.contains(oldItem) && oldItem.getLastSeen() != null && oldItem.getLastSeen().before(cacheExpiryDate)) {
+				//Item expired
 				items.remove(oldItem);
+				datastore.delete(oldItem.getKey());
 			} else if (newItems.contains(oldItem)) {
 				for (FeedItem newItem : newItems)
 					if (newItem.equals(oldItem))
 						newItem.setState(oldItem.getState());//Transfer state to new item
-				if (oldItem.getState() != FeedItem.State.SENT_PDF)
+				if (oldItem.getState() != FeedItem.State.SENT_PDF) {
 					items.remove(oldItem);//Replace with new item to resend pdf
-				else
+					datastore.delete(oldItem.getKey());
+				} else {
 					oldItem.updateLastSeen();
+					oldItem.save();
+				}
 			}
 
 		// Ignore already existing items
@@ -166,6 +249,7 @@ public class Feed {
 				public void run() {
 					try {
 						handler.handle(feed, item);
+						item.save();
 					} catch (RuntimeException ex) {
 						log.error(MessageFormat.format(messages.getString("ERROR_HANDLING_FEED_ITEM"), new Object[]{item}), ex);
 					}

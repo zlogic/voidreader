@@ -5,10 +5,18 @@
  */
 package org.zlogic.voidreader;
 
-import com.googlecode.objectify.annotation.Entity;
-import com.googlecode.objectify.annotation.Id;
-import com.googlecode.objectify.annotation.Ignore;
+import com.google.appengine.api.datastore.DatastoreService;
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.Email;
+import com.google.appengine.api.datastore.Entity;
+import com.google.appengine.api.datastore.EntityNotFoundException;
+import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.PreparedQuery;
+import com.google.appengine.api.datastore.Query;
+import com.google.appengine.api.datastore.Text;
 import java.text.MessageFormat;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import javax.mail.internet.AddressException;
@@ -22,7 +30,6 @@ import org.slf4j.LoggerFactory;
  *
  * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
-@Entity
 public class Settings {
 
 	/**
@@ -34,9 +41,12 @@ public class Settings {
 	 */
 	private static final Logger log = LoggerFactory.getLogger(Settings.class);
 	/**
+	 * The DatastoreService instance
+	 */
+	private static final DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+	/**
 	 * The settings owner user
 	 */
-	@Id
 	private String username;
 	/**
 	 * Email From address
@@ -65,7 +75,6 @@ public class Settings {
 	/**
 	 * The thread cool size for Executor instances
 	 */
-	@Ignore
 	private int threadPoolSize = Runtime.getRuntime().availableProcessors();
 
 	/**
@@ -94,6 +103,72 @@ public class Settings {
 		cacheExpireDays = Integer.parseInt(properties.getProperty("cache.expire_days", "3")); //NOI18N
 		maxRunSeconds = Integer.parseInt(properties.getProperty("core.max_run_seconds", "-1")); //NOI18N
 		enablePdf = properties.getProperty("pdf.enable", "false").equals("on"); //NOI18N
+	}
+
+	/**
+	 * Constructs a Settings instance from a Datastore Entity.
+	 *
+	 * @param entity the Datastore Entity
+	 */
+	private Settings(Entity entity) {
+		username = entity.getKey().getName();
+		mailFrom = ((Email) entity.getProperty("mailFrom")).getEmail(); //NOI18N
+		mailTo = ((Email) entity.getProperty("mailTo")).getEmail(); //NOI18N
+		enablePdf = ((Boolean) entity.getProperty("enablePdf")); //NOI18N
+		maxRunSeconds = ((Long) entity.getProperty("maxRunSeconds")).intValue(); //NOI18N
+		cacheExpireDays = ((Long) entity.getProperty("cacheExpireDays")).intValue(); //NOI18N
+		opml = ((Text) entity.getProperty("opml")).getValue(); //NOI18N
+	}
+
+	/**
+	 * Loads all Settings from Datastore.
+	 *
+	 * @return list of all Settings from Datastore
+	 */
+	public static List<Settings> loadAll() {
+		List<Settings> results = new LinkedList<>();
+		Query query = new Query(Settings.class.getSimpleName());
+		PreparedQuery preparedQuery = datastore.prepare(query);
+		for (Entity entity : preparedQuery.asIterable())
+			results.add(new Settings(entity));
+		return results;
+	}
+
+	/**
+	 * Loads Settings for user from Datastore.
+	 *
+	 * @param username the username for lookup
+	 * @return the Settings instance for user
+	 * @throws EntityNotFoundException if not Settings instance for user is
+	 * found
+	 */
+	public static Settings load(String username) throws EntityNotFoundException {
+		Key userKey = new Entity(Settings.class.getSimpleName(), username).getKey();
+		Entity entity = datastore.get(userKey);
+		return new Settings(entity);
+	}
+
+	/**
+	 * Saves the Settings into Datastore.
+	 */
+	public void save() {
+		Entity settings = new Entity(getKey());
+		settings.setProperty("mailFrom", new Email(mailFrom)); //NOI18N
+		settings.setProperty("mailTo", new Email(mailTo)); //NOI18N
+		settings.setProperty("enablePdf", enablePdf); //NOI18N
+		settings.setProperty("maxRunSeconds", maxRunSeconds); //NOI18N
+		settings.setProperty("cacheExpireDays", cacheExpireDays); //NOI18N
+		settings.setProperty("opml", new Text(opml)); //NOI18N
+		datastore.put(settings);
+	}
+
+	/**
+	 * Returns the key for this Settings instance.
+	 *
+	 * @return the key for this Settings instance
+	 */
+	public Key getKey() {
+		return new Entity(Settings.class.getSimpleName(), username).getKey();
 	}
 
 	/**

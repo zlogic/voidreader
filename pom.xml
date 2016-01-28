@@ -97,11 +97,6 @@
 				<version>1.9.31</version>
 			</dependency>
 			<dependency>
-				<groupId>com.googlecode.objectify</groupId>
-				<artifactId>objectify</artifactId>
-				<version>5.1.9</version>
-			</dependency>
-			<dependency>
 				<groupId>org.zlogic.voidreader</groupId>
 				<artifactId>code</artifactId>
 				<version>${project.version}</version>

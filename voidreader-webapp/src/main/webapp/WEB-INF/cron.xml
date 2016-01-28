@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cronentries>
 	<cron>
-		<url>/update</url>
+		<url>/admin/update</url>
 		<description>Refresh feeds</description>
 		<schedule>every 1 hours</schedule>
 	</cron>

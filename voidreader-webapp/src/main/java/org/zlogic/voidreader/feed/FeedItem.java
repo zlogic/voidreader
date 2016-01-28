@@ -5,14 +5,19 @@
  */
 package org.zlogic.voidreader.feed;
 
-import com.googlecode.objectify.annotation.Entity;
-import com.googlecode.objectify.annotation.Id;
-import com.googlecode.objectify.annotation.Ignore;
+import com.google.appengine.api.datastore.DatastoreService;
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.Entity;
+import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.PreparedQuery;
+import com.google.appengine.api.datastore.Query;
 import com.rometools.rome.feed.synd.SyndEntry;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.commons.io.IOUtils;
 import org.stringtemplate.v4.ST;
 
@@ -23,8 +28,12 @@ import org.stringtemplate.v4.ST;
  *
  * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
-@Entity
 public class FeedItem implements Comparable<FeedItem> {
+
+	/**
+	 * The DatastoreService instance
+	 */
+	private static final DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
 	/**
 	 * The state of feed items
@@ -47,7 +56,6 @@ public class FeedItem implements Comparable<FeedItem> {
 	/**
 	 * The feed item unique ID
 	 */
-	@Id
 	private String id;
 	/**
 	 * The date this item was last seen
@@ -58,29 +66,28 @@ public class FeedItem implements Comparable<FeedItem> {
 	 */
 	private State state = State.SENT_NOTHING;
 	/**
+	 * The parent Feed instance
+	 */
+	private Feed feed;
+	/**
 	 * The link for this item
 	 */
-	@Ignore
 	private String link;
 	/**
 	 * The title of this item
 	 */
-	@Ignore
 	private String title;
 	/**
 	 * The text contents of this item
 	 */
-	@Ignore
 	private String itemText;
 	/**
 	 * The HTML contents of this item
 	 */
-	@Ignore
 	private String itemHtml;
 	/**
 	 * The date this item was originally published
 	 */
-	@Ignore
 	private Date publishedDate = null;
 
 	/**
@@ -98,6 +105,7 @@ public class FeedItem implements Comparable<FeedItem> {
 	 * templates cannot be found
 	 */
 	protected FeedItem(Feed feed, SyndEntry entry) throws IOException {
+		this.feed = feed;
 		this.id = MessageFormat.format("{0}@@{1}@@{2}@@{3}", new Object[]{feed.getUrl(), entry.getUri(), entry.getLink(), entry.getTitle()});//Unique ID //NOI18N
 		this.link = entry.getLink();
 		this.title = entry.getTitle();
@@ -115,6 +123,55 @@ public class FeedItem implements Comparable<FeedItem> {
 		htmlTemplate.add("entry", entry); //NOI18N
 		itemHtml = htmlTemplate.render();
 		//TODO: extract alt-text from images for comics
+	}
+
+	/**
+	 *
+	 * Constructs a FeedItem instance from a Datastore Entity.
+	 *
+	 * @param entity the Datastore Entity
+	 */
+	private FeedItem(Entity entity) {
+		this.id = entity.getKey().getName();
+		this.lastSeen = (Date) entity.getProperty("lastSeen"); //NOI18N
+		this.state = State.valueOf((String) entity.getProperty("state")); //NOI18N
+	}
+
+	/**
+	 * Returns the key for this Feed instance.
+	 *
+	 * @return the key for this Feed instance
+	 */
+	public Key getKey() {
+		return new Entity(FeedItem.class.getSimpleName(), id, feed.getKey()).getKey();
+	}
+
+	/**
+	 * Loads all FeedItem instances for Feed from Datastore.
+	 *
+	 * @param feed the parent Feed
+	 * @return the list of all FeedItem instances for Feed from Datastore
+	 */
+	public static Set<FeedItem> load(Feed feed) {
+		Set<FeedItem> feedItems = new HashSet<>();
+		Query query = new Query(FeedItem.class.getSimpleName(), feed.getKey());
+		PreparedQuery preparedQuery = datastore.prepare(query);
+		for (Entity result : preparedQuery.asIterable()) {
+			FeedItem feedItem = new FeedItem(result);
+			feedItem.feed = feed;
+			feedItems.add(feedItem);
+		}
+		return feedItems;
+	}
+
+	/**
+	 * Saves this FeedItem instance to Datastore.
+	 */
+	public void save() {
+		Entity entity = new Entity(getKey());
+		entity.setProperty("lastSeen", lastSeen); //NOI18N
+		entity.setProperty("state", state.toString()); //NOI18N
+		datastore.put(entity);
 	}
 
 	@Override

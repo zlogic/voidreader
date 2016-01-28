@@ -6,10 +6,10 @@
 package org.zlogic.voidreader.feed;
 
 import com.google.appengine.api.ThreadManager;
-import com.googlecode.objectify.Key;
-import com.googlecode.objectify.ObjectifyService;
-import static com.googlecode.objectify.ObjectifyService.ofy;
-import com.googlecode.objectify.VoidWork;
+import com.google.appengine.api.datastore.DatastoreService;
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.EntityNotFoundException;
+import com.google.appengine.api.datastore.Key;
 import com.rometools.opml.feed.opml.Opml;
 import com.rometools.opml.feed.opml.Outline;
 import java.util.Calendar;
@@ -47,6 +47,10 @@ public class FeedsState {
 	 */
 	private static final Logger log = LoggerFactory.getLogger(FeedsState.class);
 	/**
+	 * The DatastoreService instance
+	 */
+	private static final DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+	/**
 	 * Error handler
 	 */
 	private final ErrorHandler errorHandler;
@@ -59,9 +63,9 @@ public class FeedsState {
 	 */
 	private final Date cacheExpiryDate;
 	/**
-	 * Maximum time application can run before being forcefully terminated
+	 * The user settings
 	 */
-	private final int maxRunSeconds;
+	private final Settings settings;
 
 	/**
 	 * Constructor for FeedsState
@@ -69,6 +73,7 @@ public class FeedsState {
 	 * @param settings the user settings
 	 */
 	public FeedsState(Settings settings) {
+		this.settings = settings;
 		EmailHandler emailHandler = new EmailHandler(settings);
 		errorHandler = emailHandler;
 		feedItemHandler = emailHandler;
@@ -76,7 +81,6 @@ public class FeedsState {
 		Calendar expiryDate = new GregorianCalendar();
 		expiryDate.add(Calendar.DAY_OF_MONTH, -settings.getCacheExpireDays());
 		cacheExpiryDate = expiryDate.getTime();
-		this.maxRunSeconds = settings.getMaxRunSeconds();
 	}
 
 	/**
@@ -88,16 +92,18 @@ public class FeedsState {
 		List<Feed> newFeeds = loadFeeds(opml.getOutlines(), null);
 		List<Feed> existingFeeds = getFeeds();
 		//Remove items absent from OPML
-		List<Feed> removeItems = new LinkedList<>();
+		List<Key> removeItems = new LinkedList<>();
 		for (Feed feed : existingFeeds)
 			if (!newFeeds.contains(feed))
-				removeItems.add(feed);
-		ofy().delete().entities(removeItems).now();
+				removeItems.add(feed.getKey());
+		datastore.delete(removeItems);
 		//Update/add items from OPML
 		for (Feed feed : newFeeds) {
-			Feed oldFeed = ofy().load().now(Key.create(Feed.class, feed.getUrl()));
-			Feed mergedFeed = oldFeed != null ? new Feed(feed, oldFeed.getItems()) : feed;
-			ofy().save().entity(mergedFeed).now();
+			try {
+				feed.useItemsFrom(Feed.load(feed.getKey(), settings));
+			} catch (EntityNotFoundException ex) {
+			}
+			feed.save();
 		}
 	}
 
@@ -118,7 +124,7 @@ public class FeedsState {
 			List<String> currentParentTitles = new LinkedList<>(parentTitles);
 			currentParentTitles.add(outline.getTitle());
 			if ("rss".equals(outline.getType()) && outline.getXmlUrl() != null) //NOI18N
-				loadedFeeds.add(new Feed(outline.getXmlUrl(), currentParentTitles));
+				loadedFeeds.add(new Feed(outline.getXmlUrl(), currentParentTitles, settings));
 			loadedFeeds.addAll(loadFeeds(outline.getChildren(), currentParentTitles));
 		}
 		return loadedFeeds;
@@ -130,7 +136,7 @@ public class FeedsState {
 	 * @return the list of feeds
 	 */
 	public List<Feed> getFeeds() {
-		return ofy().load().type(Feed.class).list();
+		return Feed.load(settings);
 	}
 
 	/**
@@ -152,13 +158,8 @@ public class FeedsState {
 				@Override
 				public void run() {
 					try {
-						ObjectifyService.run(new VoidWork() {
-							@Override
-							public void vrun() {
-								feed.update(feedItemHandler, cacheExpiryDate, maxRunSeconds);
-								ofy().save().entity(feed).now();
-							}
-						});
+						feed.update(feedItemHandler, cacheExpiryDate, settings.getMaxRunSeconds());
+						feed.save();
 					} catch (Exception ex) {
 						log.error(messages.getString("ERROR_OCCURRED_WHILE_UPDATING_FEED"), ex);//TODO: use an error handler
 					}
@@ -167,7 +168,7 @@ public class FeedsState {
 		}
 		executor.shutdown();
 		try {
-			if (!executor.awaitTermination(maxRunSeconds > 0 ? maxRunSeconds : Long.MAX_VALUE, TimeUnit.SECONDS)) {
+			if (!executor.awaitTermination(settings.getMaxRunSeconds() > 0 ? settings.getMaxRunSeconds() : Long.MAX_VALUE, TimeUnit.SECONDS)) {
 				throw new TimeoutException(messages.getString("TIMED_OUT_WAITING_FOR_EXECUTOR"));
 			}
 		} catch (InterruptedException ex) {
