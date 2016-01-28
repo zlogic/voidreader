@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Properties;
 import java.util.ResourceBundle;
-import javax.mail.internet.AddressException;
-import javax.mail.internet.InternetAddress;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -66,7 +64,8 @@ public class SettingsServlet extends HttpServlet {
 		response.setContentType("text/plain; charset=UTF-8"); //NOI18N
 		request.setCharacterEncoding("utf-8"); //NOI18N
 		Properties properties = new Properties();
-		properties.putAll(request.getParameterMap());
+		for (Object key : request.getParameterMap().keySet())
+			properties.put(key, request.getParameter(key.toString()));
 		Settings settings = new Settings(request.getUserPrincipal().getName(), properties);
 		ofy().save().entity(settings).now();
 		try (PrintWriter pw = new PrintWriter(response.getOutputStream())) {
