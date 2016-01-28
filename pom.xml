@@ -120,7 +120,7 @@
 	</dependencyManagement>
 	
 	<modules>
-		<module>voidreader-code</module>
+		<module>voidreader-webapp</module>
 		<module>voidreader-fonts</module>
 		<module>voidreader-resources</module>
 	</modules>
