@@ -5,30 +5,34 @@
  */
 package org.zlogic.voidreader.feed;
 
-import com.sun.syndication.feed.synd.SyndEntry;
-import com.sun.syndication.feed.synd.SyndFeed;
-import com.sun.syndication.io.FeedException;
+import com.google.appengine.api.ThreadManager;
+import com.googlecode.objectify.annotation.Entity;
+import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Ignore;
+import com.rometools.rome.feed.synd.SyndEntry;
+import com.rometools.rome.feed.synd.SyndFeed;
+import com.rometools.rome.io.SyndFeedInput;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URL;
+import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.text.MessageFormat;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlElement;
 import org.apache.commons.lang3.StringUtils;
-import org.rometools.fetcher.FeedFetcher;
-import org.rometools.fetcher.FetcherException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zlogic.voidreader.handler.FeedItemHandler;
 
 /**
@@ -38,9 +42,9 @@ import org.zlogic.voidreader.handler.FeedItemHandler;
  *
  * Used to keep track of already downloaded/sent items.
  *
- * @author Dmitry Zolotukhin <a
- * href="mailto:zlogic@gmail.com">zlogic@gmail.com</a>
+ * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
+@Entity
 public class Feed {
 
 	/**
@@ -50,24 +54,25 @@ public class Feed {
 	/**
 	 * The logger
 	 */
-	private static final Logger log = Logger.getLogger(Feed.class.getName());
+	private static final Logger log = LoggerFactory.getLogger(Feed.class);
 	/**
 	 * The feed URL
 	 */
-	@XmlAttribute(name = "url")
+	@Id
 	private String url;
 	/**
 	 * The feed items
 	 */
-	@XmlElement(name = "item")
 	private Set<FeedItem> items;
 	/**
 	 * The feed title, as presented in the RSS download results
 	 */
+	@Ignore
 	private String title;
 	/**
 	 * The feed encoding
 	 */
+	@Ignore
 	private String encoding;
 	/**
 	 * The feed title, as presented in the OPML file
@@ -75,7 +80,7 @@ public class Feed {
 	private List<String> userTitle;
 
 	/**
-	 * Empty constructor for JAXB
+	 * Empty constructor
 	 */
 	private Feed() {
 	}
@@ -116,16 +121,15 @@ public class Feed {
 	 * generate HTML based on the template)
 	 * @throws TimeoutException if the task took too long to complete
 	 */
-	private void handleEntries(List<Object> entries, FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) throws IOException, TimeoutException {
+	private void handleEntries(List<SyndEntry> entries, FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) throws IOException, TimeoutException {
 		if (items == null)
-			items = new TreeSet<>();
-		Set<FeedItem> newItems = new TreeSet<>();
-		for (Object obj : entries)
-			if (obj instanceof SyndEntry)
-				newItems.add(new FeedItem(this, (SyndEntry) obj));
+			items = new HashSet<>();
+		Set<FeedItem> newItems = new HashSet<>();
+		for (SyndEntry entry : entries)
+			newItems.add(new FeedItem(this, entry));
 
 		//Find outdated items
-		for (FeedItem oldItem : new TreeSet<>(items))
+		for (FeedItem oldItem : new HashSet<>(items))
 			if (!newItems.contains(oldItem) && oldItem.getLastSeen() != null && oldItem.getLastSeen().before(cacheExpiryDate)) {
 				items.remove(oldItem);
 			} else if (newItems.contains(oldItem)) {
@@ -143,7 +147,8 @@ public class Feed {
 
 		//Add new items
 		items.addAll(newItems);
-		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());//TODO: make this configurable
+		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), ThreadManager.currentRequestThreadFactory());
+		final Set<FeedItem> failedItems = Collections.synchronizedSet(new HashSet<FeedItem>());
 		for (FeedItem item : newItems) {
 			executor.submit(new Runnable() {
 				private FeedItemHandler handler;
@@ -162,10 +167,7 @@ public class Feed {
 					try {
 						handler.handle(feed, item);
 					} catch (RuntimeException ex) {
-						log.log(Level.SEVERE, MessageFormat.format(messages.getString("ERROR_HANDLING_FEED_ITEM"), new Object[]{item}), ex);
-						synchronized (items) {
-							items.remove(item);
-						}
+						log.error(MessageFormat.format(messages.getString("ERROR_HANDLING_FEED_ITEM"), new Object[]{item}), ex);
 					}
 				}
 			}.setParameters(handler, this, item));
@@ -178,26 +180,39 @@ public class Feed {
 		} catch (InterruptedException ex) {
 			throw new RuntimeException(ex);
 		}
+		items.removeAll(failedItems);
 	}
 
 	/**
 	 * Downloads the feed and handles new or changed items
 	 *
-	 * @param fetcher the ROME FeedFetcher
 	 * @param handler the handler for feed items
 	 * @param cacheExpiryDate the date after which feed items expire and can be
 	 * removed
 	 * @param maxRunSeconds the maximum time application can run before being
 	 * forcefully terminated
-	 * @throws RuntimeException if any error occur while handling this feed
 	 */
-	protected void update(FeedFetcher fetcher, FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) throws RuntimeException {
+	protected void update(FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) {
 		try {
-			SyndFeed feed = fetcher.retrieveFeed(new URL(url));
+			URLConnection connection = new URL(url).openConnection();
+			connection.connect();
+			SyndFeedInput feedInput = new SyndFeedInput();
+			Charset charset = Charset.forName("utf-8"); //NOI18N
+			if (connection.getContentEncoding() != null) {
+				charset = Charset.forName(connection.getContentEncoding());
+			} else if (connection.getContentType() != null) {
+				String[] contentTypeParts = connection.getContentType().split(";"); //NOI18N
+				for (String contentTypePart : contentTypeParts) {
+					String[] contentTypePartComponents = contentTypePart.trim().split("=", 2); //NOI18N
+					if (contentTypePartComponents.length == 2 && contentTypePartComponents[0].matches("charset")) //NOI18N
+						charset = Charset.forName(contentTypePartComponents[1].trim());
+				}
+			}
+			SyndFeed feed = feedInput.build(new InputStreamReader(connection.getInputStream(), charset));
 			title = feed.getTitle();
 			encoding = feed.getEncoding();
 			handleEntries(feed.getEntries(), handler, cacheExpiryDate, maxRunSeconds);
-		} catch (FeedException | FetcherException | IOException | IllegalArgumentException | TimeoutException ex) {
+		} catch (IOException | IllegalArgumentException | TimeoutException ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
 		} catch (Exception ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);

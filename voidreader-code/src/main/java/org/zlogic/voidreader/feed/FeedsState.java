@@ -5,52 +5,37 @@
  */
 package org.zlogic.voidreader.feed;
 
-import com.sun.syndication.feed.opml.Opml;
-import com.sun.syndication.feed.opml.Outline;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.CopyOption;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.text.MessageFormat;
+import com.google.appengine.api.ThreadManager;
+import com.googlecode.objectify.Key;
+import com.googlecode.objectify.ObjectifyService;
+import static com.googlecode.objectify.ObjectifyService.ofy;
+import com.googlecode.objectify.VoidWork;
+import com.rometools.opml.feed.opml.Opml;
+import com.rometools.opml.feed.opml.Outline;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import javax.xml.bind.Unmarshaller;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import org.rometools.fetcher.FeedFetcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.handler.ErrorHandler;
 import org.zlogic.voidreader.handler.FeedItemHandler;
 import org.zlogic.voidreader.handler.impl.EmailHandler;
-import org.zlogic.voidreader.handler.impl.FileHandler;
 
 /**
  * Toplevel class for handling all feeds: saving data to XML, restoring data
  * from XML, loading feeds list from OPML, downloading & handling new feed
  * items.
  *
- *
- * @author Dmitry Zolotukhin <a
- * href="mailto:zlogic@gmail.com">zlogic@gmail.com</a>
+ * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
-@XmlRootElement(name = "feeds")
 public class FeedsState {
 
 	/**
@@ -60,107 +45,38 @@ public class FeedsState {
 	/**
 	 * The logger
 	 */
-	private static final Logger log = Logger.getLogger(FeedsState.class.getName());
-	/**
-	 * Feeds list
-	 */
-	@XmlElement(name = "feed")
-	private List<Feed> feeds;
-	/**
-	 * File for storing feeds state
-	 */
-	private File persistenceFile;
+	private static final Logger log = LoggerFactory.getLogger(FeedsState.class);
 	/**
 	 * Error handler
 	 */
-	private ErrorHandler errorHandler;
+	private final ErrorHandler errorHandler;
 	/**
 	 * Feed item handler
 	 */
-	private FeedItemHandler feedItemHandler;
+	private final FeedItemHandler feedItemHandler;
 	/**
 	 * The date after which feed items expire and can be removed
 	 */
-	private Date cacheExpiryDate;
+	private final Date cacheExpiryDate;
 	/**
 	 * Maximum time application can run before being forcefully terminated
 	 */
-	private int maxRunSeconds;
+	private final int maxRunSeconds;
 
 	/**
 	 * Constructor for FeedsState
 	 *
-	 * @param settings the application global settings
+	 * @param settings the user settings
 	 */
 	public FeedsState(Settings settings) {
-		this.persistenceFile = settings.getStorageFile();
-		if (persistenceFile.exists())
-			restoreDownloadedItems();
-		switch (settings.getHandler()) {
-			case SMTP:
-			case IMAP:
-				EmailHandler emailHandler = new EmailHandler(settings);
-				errorHandler = emailHandler;
-				feedItemHandler = emailHandler;
-				break;
-			case FILE:
-				FileHandler fileHandler = new FileHandler(settings);
-				errorHandler = fileHandler;
-				feedItemHandler = fileHandler;
-				break;
-		}
+		EmailHandler emailHandler = new EmailHandler(settings);
+		errorHandler = emailHandler;
+		feedItemHandler = emailHandler;
 
 		Calendar expiryDate = new GregorianCalendar();
 		expiryDate.add(Calendar.DAY_OF_MONTH, -settings.getCacheExpireDays());
 		cacheExpiryDate = expiryDate.getTime();
 		this.maxRunSeconds = settings.getMaxRunSeconds();
-	}
-
-	/**
-	 * Empty constructor for JAXB
-	 */
-	private FeedsState() {
-	}
-
-	/**
-	 * Restores feed data from XML
-	 *
-	 * @throws RuntimeException if restoring failed
-	 */
-	private void restoreDownloadedItems() throws RuntimeException {
-		Object obj = null;
-		try {
-			JAXBContext jaxbContext = JAXBContext.newInstance(FeedsState.class);
-			Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
-			obj = jaxbUnmarshaller.unmarshal(persistenceFile);
-		} catch (JAXBException ex) {
-			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_LOAD_SAVED_FEEDS_FROM_FILE"), new Object[]{persistenceFile.toString()}), ex);
-		}
-		if (obj instanceof FeedsState) {
-			FeedsState savedFeeds = (FeedsState) obj;
-			feeds = savedFeeds.feeds;
-		}
-	}
-
-	/**
-	 * Saves feed data to XML
-	 *
-	 * @throws RuntimeException if save failed
-	 */
-	protected void saveDownloadedItems() throws RuntimeException {
-		synchronized (this) {
-			try {
-				JAXBContext jaxbContext = JAXBContext.newInstance(FeedsState.class);
-				Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
-				jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-
-				File tempFile = new File(persistenceFile.getParentFile(), persistenceFile.getName() + ".tmp"); //NOI18N
-				jaxbMarshaller.marshal(this, tempFile);
-				Files.move(Paths.get(tempFile.toURI()), Paths.get(persistenceFile.toURI()), new CopyOption[]{StandardCopyOption.REPLACE_EXISTING});
-			} catch (JAXBException | IOException ex) {
-				throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_SAVE_FEEDS_TO_FILE"), new Object[]{persistenceFile.toString()}), ex);
-			}
-		}
 	}
 
 	/**
@@ -170,25 +86,18 @@ public class FeedsState {
 	 */
 	public void updateOpml(Opml opml) {
 		List<Feed> newFeeds = loadFeeds(opml.getOutlines(), null);
-		if (feeds == null) {
-			feeds = newFeeds;
-		} else {
-			//Remove items absent from OPML
-			List<Feed> removeItems = new LinkedList<>();
-			for (Feed feed : feeds)
-				if (!newFeeds.contains(feed))
-					removeItems.add(feed);
-			feeds.removeAll(removeItems);
-			//Update/add items from OPML
-			for (Feed feed : newFeeds) {
-				if (!feeds.contains(feed)) {
-					feeds.add(feed);
-				} else {
-					Feed oldFeed = feeds.get(feeds.indexOf(feed));
-					feeds.remove(oldFeed);
-					feeds.add(new Feed(feed, oldFeed.getItems()));
-				}
-			}
+		List<Feed> existingFeeds = getFeeds();
+		//Remove items absent from OPML
+		List<Feed> removeItems = new LinkedList<>();
+		for (Feed feed : existingFeeds)
+			if (!newFeeds.contains(feed))
+				removeItems.add(feed);
+		ofy().delete().entities(removeItems).now();
+		//Update/add items from OPML
+		for (Feed feed : newFeeds) {
+			Feed oldFeed = ofy().load().now(Key.create(Feed.class, feed.getUrl()));
+			Feed mergedFeed = oldFeed != null ? new Feed(feed, oldFeed.getItems()) : feed;
+			ofy().save().entity(mergedFeed).now();
 		}
 	}
 
@@ -200,19 +109,17 @@ public class FeedsState {
 	 * the top level
 	 * @return the list of Feed instances
 	 */
-	private List<Feed> loadFeeds(List outlines, List<String> parentTitles) {
+	private List<Feed> loadFeeds(List<Outline> outlines, List<String> parentTitles) {
 		List<Feed> loadedFeeds = new LinkedList<>();
 		if (parentTitles == null)
 			parentTitles = new LinkedList<>();
-		for (Object obj : outlines) {
-			if (obj instanceof Outline) {
-				Outline outline = (Outline) obj;
-				List<String> currentParentTitles = new LinkedList<>(parentTitles);
-				currentParentTitles.add(outline.getTitle());
-				if ("rss".equals(outline.getType()) && outline.getXmlUrl() != null) //NOI18N
-					loadedFeeds.add(new Feed(outline.getXmlUrl(), currentParentTitles));
-				loadedFeeds.addAll(loadFeeds(outline.getChildren(), currentParentTitles));
-			}
+		for (Outline obj : outlines) {
+			Outline outline = (Outline) obj;
+			List<String> currentParentTitles = new LinkedList<>(parentTitles);
+			currentParentTitles.add(outline.getTitle());
+			if ("rss".equals(outline.getType()) && outline.getXmlUrl() != null) //NOI18N
+				loadedFeeds.add(new Feed(outline.getXmlUrl(), currentParentTitles));
+			loadedFeeds.addAll(loadFeeds(outline.getChildren(), currentParentTitles));
 		}
 		return loadedFeeds;
 	}
@@ -223,67 +130,40 @@ public class FeedsState {
 	 * @return the list of feeds
 	 */
 	public List<Feed> getFeeds() {
-		if (feeds == null)
-			feeds = new LinkedList<>();
-		return feeds;
-	}
-
-	/**
-	 * Starts the shutdown watchdog to terminate the application if it's running
-	 * too long
-	 *
-	 * @return the timer which can be cancelled if necessary
-	 */
-	private Timer scheduleShutdownTask() {
-		if (maxRunSeconds <= 0)
-			return null;
-		Timer terminateTimer = new Timer("TerminateTimer", true); //NOI18N
-		TimerTask terminateTimerTask = new TimerTask() {
-			@Override
-			public void run() {
-				log.severe(messages.getString("APPLICATION_RAN_OUT_OF_TIME_FORCING_SHUTDOWN"));
-				saveDownloadedItems();
-				System.exit(-1);
-			}
-		};
-		Calendar terminateDate = new GregorianCalendar();
-		terminateDate.add(Calendar.SECOND, (int) maxRunSeconds);
-
-		terminateTimer.schedule(terminateTimerTask, terminateDate.getTime());
-		return terminateTimer;
+		return ofy().load().type(Feed.class).list();
 	}
 
 	/**
 	 * Downloads the latest feed data and handles new and updated items
 	 *
-	 * @param feedFetcher the ROME FeedFetcher instance
-	 * @throws RuntimeException if a major error occurred while processing the
-	 * feeds
 	 * @throws TimeoutException if the task took too long to complete
 	 */
-	public void update(FeedFetcher feedFetcher) throws RuntimeException, TimeoutException {
-		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4);//TODO: make this configurable
-		Timer terminateTimer = scheduleShutdownTask();
-		for (Feed feed : feeds) {
+	public void update() throws TimeoutException {
+		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), ThreadManager.currentRequestThreadFactory());
+		for (Feed feed : getFeeds()) {
 			executor.submit(new Runnable() {
-				private FeedFetcher feedFetcher;
 				private Feed feed;
 
-				public Runnable setParameters(Feed feed, FeedFetcher feedFetcher) {
+				public Runnable setParameters(Feed feed) {
 					this.feed = feed;
-					this.feedFetcher = feedFetcher;
 					return this;
 				}
 
 				@Override
 				public void run() {
 					try {
-						feed.update(feedFetcher, feedItemHandler, cacheExpiryDate, maxRunSeconds);
-					} catch (RuntimeException ex) {
-						log.log(Level.SEVERE, null, ex);//TODO: use an error handler
+						ObjectifyService.run(new VoidWork() {
+							@Override
+							public void vrun() {
+								feed.update(feedItemHandler, cacheExpiryDate, maxRunSeconds);
+								ofy().save().entity(feed).now();
+							}
+						});
+					} catch (Exception ex) {
+						log.error(messages.getString("ERROR_OCCURRED_WHILE_UPDATING_FEED"), ex);//TODO: use an error handler
 					}
 				}
-			}.setParameters(feed, feedFetcher));
+			}.setParameters(feed));
 		}
 		executor.shutdown();
 		try {
@@ -291,11 +171,7 @@ public class FeedsState {
 				throw new TimeoutException(messages.getString("TIMED_OUT_WAITING_FOR_EXECUTOR"));
 			}
 		} catch (InterruptedException ex) {
-			saveDownloadedItems();
 			throw new RuntimeException(ex);
 		}
-		if (terminateTimer != null)
-			terminateTimer.cancel();
-		saveDownloadedItems();
 	}
 }

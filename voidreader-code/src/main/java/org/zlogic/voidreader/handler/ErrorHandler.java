@@ -10,8 +10,7 @@ import org.zlogic.voidreader.feed.Feed;
 /**
  * Interface for classes which can handle an exception.
  *
- * @author Dmitry Zolotukhin <a
- * href="mailto:zlogic@gmail.com">zlogic@gmail.com</a>
+ * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
 public interface ErrorHandler {
 

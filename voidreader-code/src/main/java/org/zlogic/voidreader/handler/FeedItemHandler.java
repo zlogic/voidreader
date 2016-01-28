@@ -11,8 +11,7 @@ import org.zlogic.voidreader.feed.FeedItem;
 /**
  * Interface for classes which can handle a new or changed feed item.
  *
- * @author Dmitry Zolotukhin <a
- * href="mailto:zlogic@gmail.com">zlogic@gmail.com</a>
+ * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
 public interface FeedItemHandler {
 
@@ -21,8 +20,6 @@ public interface FeedItemHandler {
 	 *
 	 * @param feed the source feed
 	 * @param item the new or updated feed item
-	 * @throws RuntimeException if an error occurred while processing the feed
-	 * item
 	 */
-	public void handle(Feed feed, FeedItem item) throws RuntimeException;
+	public void handle(Feed feed, FeedItem item);
 }

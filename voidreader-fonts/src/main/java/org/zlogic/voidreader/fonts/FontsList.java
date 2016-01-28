@@ -6,13 +6,15 @@
 package org.zlogic.voidreader.fonts;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
-import org.apache.commons.io.IOUtils;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * Helper class to retrieve the list of fonts included in this package
  *
- * @author Dmitry Zolotukhin <a href="mailto:zlogic@gmail.com">zlogic@gmail.com</a>
+ * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
 public class FontsList {
 
@@ -23,7 +25,12 @@ public class FontsList {
 	 * @throws IOException if creating the font list failed
 	 */
 	public URL[] getFontUrls() throws IOException {
-		String[] fonts = IOUtils.toString(FontsList.class.getResourceAsStream("fonts.txt")).split("[\r\n]+"); //NOI18N
+		String[] fonts;
+		try {
+			fonts = new String(Files.readAllBytes(Paths.get(FontsList.class.getResource("fonts.txt").toURI()))).split("[\r\n]+"); //NOI18N
+		} catch (URISyntaxException ex) {
+			throw new RuntimeException();
+		}
 		URL[] fontsUrls = new URL[fonts.length];
 		for (int i = 0; i < fonts.length; i++)
 			fontsUrls[i] = FontsList.class.getResource(fonts[i]);

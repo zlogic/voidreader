@@ -8,25 +8,22 @@ package org.zlogic.voidreader.handler.impl;
 import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.text.MessageFormat;
+import java.util.Properties;
 import java.util.ResourceBundle;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.activation.DataHandler;
-import javax.mail.Authenticator;
 import javax.mail.BodyPart;
-import javax.mail.Folder;
 import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Multipart;
-import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
-import javax.mail.Store;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.feed.Feed;
 import org.zlogic.voidreader.feed.FeedItem;
@@ -37,15 +34,14 @@ import org.zlogic.voidreader.handler.FeedItemHandler;
  * FeedItemHandler and ErrorHandler implementation which sends an email for
  * every new feed item. Supports SMTP and IMAP upload protocols.
  *
- * @author Dmitry Zolotukhin <a
- * href="mailto:zlogic@gmail.com">zlogic@gmail.com</a>
+ * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
 public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, FeedItemHandler {
 
 	/**
 	 * The logger
 	 */
-	private static final Logger log = Logger.getLogger(EmailHandler.class.getName());
+	private static final Logger log = LoggerFactory.getLogger(EmailHandler.class);
 	/**
 	 * Localization messages
 	 */
@@ -53,23 +49,20 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 	/**
 	 * The application global settings
 	 */
-	private Settings settings;
+	private final Settings settings;
 	/**
 	 * The current email session
 	 */
-	private Session mailSession;
-	/**
-	 * The IMAP store
-	 */
-	private Store imapStore;
+	private final Session mailSession;
 
 	/**
 	 * Constructor for EmailHandler
 	 *
-	 * @param settings the application global settings
+	 * @param settings the user settings
 	 */
 	public EmailHandler(Settings settings) {
 		this.settings = settings;
+		mailSession = Session.getDefaultInstance(new Properties(), null);
 	}
 
 	@Override
@@ -77,51 +70,8 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 		throw new UnsupportedOperationException(messages.getString("NOT_SUPPORTED_YET")); //To change body of generated methods, choose Tools | Templates.
 	}
 
-	/**
-	 * Prepares the email session and IMAP store. Creates shutdown hooks for
-	 * cleanup.
-	 */
-	private void openEmailSession() {
-		if (mailSession == null) {
-			Authenticator authenticator = new Authenticator() {
-				private PasswordAuthentication passwordAuthentication;
-
-				public Authenticator setSettings(Settings settings) {
-					this.passwordAuthentication = new PasswordAuthentication(settings.getMailUser(), settings.getMailPassword());
-					return this;
-				}
-
-				@Override
-				protected PasswordAuthentication getPasswordAuthentication() {
-					return passwordAuthentication;
-				}
-			}.setSettings(settings);
-			mailSession = Session.getDefaultInstance(settings.getMailProperties(), authenticator);
-			try {
-				imapStore = mailSession.getStore(settings.getImapStore());
-			} catch (MessagingException ex) {
-				log.log(Level.SEVERE, null, ex);
-			}
-			if (settings.getHandler() == Settings.Handler.IMAP) {
-				Runnable closeStoreRunnable = new Runnable() {
-					@Override
-					public void run() {
-						try {
-							if (imapStore != null && imapStore.isConnected())
-								imapStore.close();
-						} catch (MessagingException ex) {
-							log.log(Level.SEVERE, null, ex);
-						}
-					}
-				};
-				Runtime.getRuntime().addShutdownHook(new Thread(closeStoreRunnable));
-			}
-		}
-	}
-
 	@Override
-	public void handle(Feed feed, FeedItem item) throws RuntimeException {
-		openEmailSession();
+	public void handle(Feed feed, FeedItem item) {
 		MimeMessage message = new MimeMessage(mailSession);
 
 		try {
@@ -150,7 +100,8 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 
 			body.setContent(bodyAlternatives);
 
-			multipart.addBodyPart(body);
+			multipart.addBodyPart(messageTextPart);
+			multipart.addBodyPart(messageHtmlBodyPart);
 
 			FeedItem.State newState = item.getState();
 			if (item.getState() != FeedItem.State.SENT_PDF && settings.isEnablePdf()) {
@@ -162,24 +113,15 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 					multipart.addBodyPart(pdfBodyPart);
 					newState = FeedItem.State.SENT_PDF;
 				} catch (Exception ex) {
-					log.log(Level.SEVERE, messages.getString("CANNOT_GENERATE_PDF"), ex);
+					log.error(messages.getString("CANNOT_GENERATE_PDF"), ex);
 				}
 			}
 			message.setContent(multipart);
-			message.setSentDate(item.getPublishedDate());
+			if(item.getPublishedDate()!=null)
+				message.setSentDate(item.getPublishedDate());
 			boolean pdfFailedAgain = newState == FeedItem.State.SENT_ENTRY && item.getState() == FeedItem.State.SENT_ENTRY;
-			if (!pdfFailedAgain) {
-				if (settings.getHandler() == Settings.Handler.SMTP) {
-					Transport.send(message);
-				} else if (settings.getHandler() == Settings.Handler.IMAP) {
-					synchronized (imapStore) {
-						if (!imapStore.isConnected())
-							imapStore.connect();
-					}
-					Folder folder = imapStore.getFolder(settings.getImapFolder());
-					folder.appendMessages(new Message[]{message});
-				}
-			}
+			if (!pdfFailedAgain)
+				Transport.send(message);
 			if (newState != FeedItem.State.SENT_PDF)
 				newState = FeedItem.State.SENT_ENTRY;
 			item.setState(newState);

@@ -23,15 +23,14 @@ import org.zlogic.voidreader.fonts.FontsList;
  * Abstract class with PDF generation functions. Can be inherited by other
  * handlers to provide PDF generations features.
  *
- * @author Dmitry Zolotukhin <a
- * href="mailto:zlogic@gmail.com">zlogic@gmail.com</a>
+ * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
 public abstract class AbstractPdfHandler {
 
 	/**
 	 * The list of fonts included with this application
 	 */
-	private FontsList fontsList = new FontsList();
+	private final FontsList fontsList = new FontsList();
 
 	/**
 	 * Renders an XHTML page to PDF
@@ -87,6 +86,7 @@ public abstract class AbstractPdfHandler {
 		Document htmlDocumentClean = cleaner.clean(htmlDocument);
 		htmlDocumentClean.setBaseUri(url);
 		htmlDocumentClean.outputSettings().prettyPrint(false);
+		htmlDocumentClean.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
 		htmlDocumentClean.outputSettings().escapeMode(Entities.EscapeMode.xhtml);
 		/*
 		 for (Element element : htmlDocument.head().getAllElements()) {

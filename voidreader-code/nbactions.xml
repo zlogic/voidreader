@@ -1,40 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <actions>
 	<action>
-		<actionName>run</actionName>
+		<actionName>CUSTOM-appengine:devserver</actionName>
+		<displayName>appengine:devserver</displayName>
 		<goals>
-			<goal>process-classes</goal>
-			<goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
+			<goal>appengine:devserver</goal>
 		</goals>
 		<properties>
-			<exec.args>-Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main config.properties</exec.args>
-			<exec.executable>java</exec.executable>
-			<exec.workingdir>../../Test homedir</exec.workingdir>
+			<Env._JAVA_OPTIONS>-Dfile.encoding=utf-8</Env._JAVA_OPTIONS>
 		</properties>
 	</action>
 	<action>
-		<actionName>debug</actionName>
+		<actionName>CUSTOM-appengine:update</actionName>
+		<displayName>appengine:update</displayName>
 		<goals>
-			<goal>process-classes</goal>
-			<goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
+			<goal>appengine:update</goal>
 		</goals>
 		<properties>
-			<exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main config.properties</exec.args>
-			<exec.executable>java</exec.executable>
-			<jpda.listen>true</jpda.listen>
-			<exec.workingdir>../../Test homedir</exec.workingdir>
-		</properties>
-	</action>
-	<action>
-		<actionName>profile</actionName>
-		<goals>
-			<goal>process-classes</goal>
-			<goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
-		</goals>
-		<properties>
-			<exec.args>${profiler.args} -Dfile.encoding=utf-8 -classpath %classpath org.zlogic.voidreader.Main config.properties</exec.args>
-			<exec.executable>${profiler.java}</exec.executable>
-			<exec.workingdir>../../Test homedir</exec.workingdir>
+			<Env._JAVA_OPTIONS>-Dfile.encoding=utf-8</Env._JAVA_OPTIONS>
 		</properties>
 	</action>
 </actions>

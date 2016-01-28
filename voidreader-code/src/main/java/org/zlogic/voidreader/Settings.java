@@ -5,93 +5,46 @@
  */
 package org.zlogic.voidreader;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import com.googlecode.objectify.annotation.Entity;
+import com.googlecode.objectify.annotation.Id;
+import java.text.MessageFormat;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.ResourceBundle;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Class used to read application settings. Provides getters for all settings
  * used by the application in the configuration file.
  *
- * @author Dmitry Zolotukhin <a
- * href="mailto:zlogic@gmail.com">zlogic@gmail.com</a>
+ * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
+@Entity
 public class Settings {
 
 	/**
+	 * Localization messages
+	 */
+	private static final ResourceBundle messages = ResourceBundle.getBundle("org/zlogic/voidreader/messages");
+	/**
 	 * The logger
 	 */
-	private static final Logger log = Logger.getLogger(Settings.class.getName());
-
+	private static final Logger log = LoggerFactory.getLogger(Settings.class);
 	/**
-	 * Handler type for new or updated items
+	 * The settings owner user
 	 */
-	public enum Handler {
-
-		/**
-		 * Send items via SMTP
-		 */
-		SMTP,
-		/**
-		 * Upload items via IMAP
-		 */
-		IMAP,
-		/**
-		 * Save items in a folder (WARNING: this is for testing purposes only,
-		 * see org.zlogic.voidreader.handler.impl.FileHandler javadoc for more
-		 * info
-		 */
-		FILE
-	};
-	/**
-	 * The OPML file
-	 */
-	private File opmlFile;
-	/**
-	 * The temporary directory for the Handler.FILE handler
-	 */
-	private File tempDir;
-	/**
-	 * The XML file where feed state will be stored
-	 */
-	private File storageFile;
-	/**
-	 * The selected handler
-	 */
-	private Handler handler;
-	/**
-	 * javax.mail properties
-	 */
-	private Properties mailProperties = new Properties();
+	@Id
+	private String username;
 	/**
 	 * Email From address
 	 */
-	private InternetAddress mailFrom;
+	private String mailFrom;
 	/**
 	 * Email To address
 	 */
-	private InternetAddress mailTo;
-	/**
-	 * Email authentication username
-	 */
-	private String mailUser;
-	/**
-	 * Email authentication password
-	 */
-	private String mailPassword;
-	/**
-	 * IMAP store name
-	 */
-	private String imapStore;
-	/**
-	 * IMAP target upload folder name
-	 */
-	private String imapFolder;
+	private String mailTo;
 	/**
 	 * Days to keep items after they're removed from the feed
 	 */
@@ -104,66 +57,41 @@ public class Settings {
 	 * Enable downloading and sending of PDF copies of original articles
 	 */
 	private boolean enablePdf;
+	/**
+	 * The OPML data
+	 */
+	private String opml;
+	/**
+	 * The thread cool size for Executor instances
+	 */
+	private int threadPoolSize = Runtime.getRuntime().availableProcessors();
 
 	/**
-	 * Constructs settings by loading a settings file
-	 *
-	 * @param source the settings file
-	 * @throws AddressException if an email or internet address cannot be parsed
+	 * Default constructor
 	 */
-	public Settings(File source) throws AddressException {
-		Properties properties = new Properties();
+	private Settings() {
+
+	}
+
+	/**
+	 * Constructs a Settings instance.
+	 *
+	 * @param username the Settings owner username
+	 * @param properties the settings data
+	 */
+	public Settings(String username, Properties properties) {
+		this.username = username;
+		this.opml = properties.getProperty("opml", ""); //NOI18N
 		try {
-			properties.load(new FileReader(source));
-		} catch (IOException ex) {
-			log.log(Level.SEVERE, null, ex);
+			mailFrom = new InternetAddress(properties.getProperty("email.from")).toString(); //NOI18N
+			mailTo = new InternetAddress(properties.getProperty("email.to")).toString(); //NOI18N
+		} catch (AddressException ex) {
+			throw new RuntimeException(ex);
 		}
-		opmlFile = new File(properties.getProperty("input.opml", "subscriptions.xml")); //NOI18N
-		storageFile = new File(properties.getProperty("output.storage", "feeds.xml")); //NOI18N
-		tempDir = new File(properties.getProperty("output.tempdir", "temp")); //NOI18N
-		handler = Handler.valueOf(properties.getProperty("output.handler").toString().toUpperCase()); //NOI18N
-
-		for (String prop : properties.stringPropertyNames())
-			if (prop.startsWith("mail.")) //NOI18N
-				mailProperties.setProperty(prop, properties.getProperty(prop));
-
-		mailFrom = new InternetAddress(properties.getProperty("email.from")); //NOI18N
-		mailTo = new InternetAddress(properties.getProperty("email.to")); //NOI18N
-		mailUser = properties.getProperty("email.user"); //NOI18N
-		mailPassword = properties.getProperty("email.password"); //NOI18N
-		imapStore = properties.getProperty("email.imap.store"); //NOI18N
-		imapFolder = properties.getProperty("email.imap.folder"); //NOI18N
 
 		cacheExpireDays = Integer.parseInt(properties.getProperty("cache.expire_days", "3")); //NOI18N
 		maxRunSeconds = Integer.parseInt(properties.getProperty("core.max_run_seconds", "-1")); //NOI18N
-		enablePdf = Boolean.parseBoolean(properties.getProperty("pdf.enable", "true")); //NOI18N
-	}
-
-	/**
-	 * Returns the OPML file
-	 *
-	 * @return the OPML file
-	 */
-	public File getOpmlFile() {
-		return opmlFile;
-	}
-
-	/**
-	 * Returns the temporary directory for the Handler.FILE handler
-	 *
-	 * @return the temporary directory for the Handler.FILE handler
-	 */
-	public File getTempDir() {
-		return tempDir;
-	}
-
-	/**
-	 * Returns the XML file where feed state will be stored
-	 *
-	 * @return the XML file where feed state will be stored
-	 */
-	public File getStorageFile() {
-		return storageFile;
+		enablePdf = properties.getProperty("pdf.enable", "false").equals("on"); //NOI18N
 	}
 
 	/**
@@ -198,21 +126,16 @@ public class Settings {
 	}
 
 	/**
-	 * Returns the javax.mail properties
-	 *
-	 * @return the javax.mail properties
-	 */
-	public Properties getMailProperties() {
-		return mailProperties;
-	}
-
-	/**
 	 * Returns the email From address
 	 *
 	 * @return the email From address
 	 */
 	public InternetAddress getMailFrom() {
-		return mailFrom;
+		try {
+			return new InternetAddress(mailFrom);
+		} catch (AddressException ex) {
+			throw new RuntimeException(ex);
+		}
 	}
 
 	/**
@@ -221,51 +144,44 @@ public class Settings {
 	 * @return the email To address
 	 */
 	public InternetAddress getMailTo() {
-		return mailTo;
+		try {
+			return new InternetAddress(mailTo);
+		} catch (AddressException ex) {
+			throw new RuntimeException(ex);
+		}
 	}
 
 	/**
-	 * Returns the selected handler
+	 * Returns the username for these Settings.
 	 *
-	 * @return the selected handler
+	 * @return the username for these Settings.
 	 */
-	public Handler getHandler() {
-		return handler;
+	public String getUsername() {
+		return username;
 	}
 
 	/**
-	 * Returns the email authentication username
+	 * Returns the OPML data.
 	 *
-	 * @return the email authentication username
+	 * @return the OPML data
 	 */
-	public String getMailUser() {
-		return mailUser;
+	public String getOpml() {
+		return opml;
 	}
 
 	/**
-	 * Returns the email authentication password
+	 * Returns the thread cool size for Executor instances.
 	 *
-	 * @return the email authentication password
+	 * @return the thread cool size for Executor instances
 	 */
-	public String getMailPassword() {
-		return mailPassword;
+	public int getThreadPoolSize() {
+		return threadPoolSize;
 	}
 
-	/**
-	 * Returns the IMAP store name
-	 *
-	 * @return the IMAP store name
-	 */
-	public String getImapStore() {
-		return imapStore;
+	@Override
+	public String toString() {
+		return MessageFormat.format(messages.getString("SETTINGS_TOSTRING_FORMAT"),
+				username, cacheExpireDays, maxRunSeconds, enablePdf, mailFrom, mailTo, threadPoolSize, opml);
 	}
 
-	/**
-	 * Returns the IMAP target upload folder name
-	 *
-	 * @return the IMAP target upload folder name
-	 */
-	public String getImapFolder() {
-		return imapFolder;
-	}
 }

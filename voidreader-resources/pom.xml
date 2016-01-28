@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.zlogic.voidreader</groupId>
 		<artifactId>top</artifactId>
-		<version>0.1-SNAPSHOT</version>
+		<version>0.2-SNAPSHOT</version>
 	</parent>
 	<groupId>org.zlogic.voidreader</groupId>
 	<artifactId>voidreader-resources</artifactId>
@@ -24,10 +24,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<configuration>
-					<source>${version.java}</source>
-					<target>${version.java}</target>
-				</configuration>
 			</plugin>
 		</plugins>
 	</build>
