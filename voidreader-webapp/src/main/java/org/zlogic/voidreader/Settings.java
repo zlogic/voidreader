@@ -7,6 +7,7 @@ package org.zlogic.voidreader;
 
 import com.googlecode.objectify.annotation.Entity;
 import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Ignore;
 import java.text.MessageFormat;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -64,6 +65,7 @@ public class Settings {
 	/**
 	 * The thread cool size for Executor instances
 	 */
+	@Ignore
 	private int threadPoolSize = Runtime.getRuntime().availableProcessors();
 
 	/**
