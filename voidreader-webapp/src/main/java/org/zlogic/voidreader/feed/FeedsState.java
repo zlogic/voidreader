@@ -93,9 +93,13 @@ public class FeedsState {
 		List<Feed> existingFeeds = getFeeds();
 		//Remove items absent from OPML
 		List<Key> removeItems = new LinkedList<>();
-		for (Feed feed : existingFeeds)
-			if (!newFeeds.contains(feed))
+		for (Feed feed : existingFeeds) {
+			if (!newFeeds.contains(feed)) {
 				removeItems.add(feed.getKey());
+				for (FeedItem item : feed.getItems())
+					removeItems.add(item.getKey());
+			}
+		}
 		datastore.delete(removeItems);
 		//Update/add items from OPML
 		for (Feed feed : newFeeds) {
