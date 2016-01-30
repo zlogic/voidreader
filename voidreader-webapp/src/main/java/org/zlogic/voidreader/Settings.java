@@ -14,6 +14,7 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.Text;
+import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.LinkedList;
 import java.util.List;
@@ -81,7 +82,13 @@ public class Settings {
 	 * Default constructor
 	 */
 	private Settings() {
-
+		Properties properties = new Properties();
+		try {
+			properties.load(getClass().getResourceAsStream("/settings.properties")); //NOI18N
+			mailFrom = new InternetAddress(properties.getProperty("email.from")).toString(); //NOI18N
+		} catch (AddressException | IOException ex) {
+			throw new RuntimeException(ex);
+		}
 	}
 
 	/**
@@ -91,10 +98,10 @@ public class Settings {
 	 * @param properties the settings data
 	 */
 	public Settings(String username, Properties properties) {
+		this();
 		this.username = username;
 		this.opml = properties.getProperty("opml", ""); //NOI18N
 		try {
-			mailFrom = new InternetAddress(properties.getProperty("email.from")).toString(); //NOI18N
 			mailTo = new InternetAddress(properties.getProperty("email.to")).toString(); //NOI18N
 		} catch (AddressException ex) {
 			throw new RuntimeException(ex);
@@ -112,7 +119,6 @@ public class Settings {
 	 */
 	private Settings(Entity entity) {
 		username = entity.getKey().getName();
-		mailFrom = ((Email) entity.getProperty("mailFrom")).getEmail(); //NOI18N
 		mailTo = ((Email) entity.getProperty("mailTo")).getEmail(); //NOI18N
 		enablePdf = ((Boolean) entity.getProperty("enablePdf")); //NOI18N
 		maxRunSeconds = ((Long) entity.getProperty("maxRunSeconds")).intValue(); //NOI18N
@@ -153,7 +159,6 @@ public class Settings {
 	 */
 	public void save() {
 		Entity settings = new Entity(getKey());
-		settings.setProperty("mailFrom", new Email(mailFrom)); //NOI18N
 		settings.setProperty("mailTo", new Email(mailTo)); //NOI18N
 		settings.setProperty("enablePdf", enablePdf); //NOI18N
 		settings.setProperty("maxRunSeconds", maxRunSeconds); //NOI18N

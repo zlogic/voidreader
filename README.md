@@ -14,14 +14,14 @@ Installation
 1. Create a Google App Engine account and a new project
 2. Create a new project, write down its Project ID (*project_id*)
 3. Get a copy of Void Reader (I recomend to fork this repository)
-4. 
+4. Set your *project_id* in /pom.xml's <voidreader.appengine.projectid/> property: `<voidreader.appengine.projectid>*project_id*</voidreader.appengine.projectid>`
 5. Build the project (`mvn clean install`)
-6. deploy to App  by going into `voidreader-webapp` and running `mvn appengine:update`
+6. Deploy to App  by going into `voidreader-webapp` and running `mvn appengine:update`
 
 Configuration
 -----
 1. Open https://*project_id*.appspot.com/settings/
-2. Submit the form with your settings
+2. Submit the form with your settings ("PDF enable" doesn't work on App Engine, **do not check it**)
 3. You can view the current settings by opening https://*project_id*.appspot.com/admin/settings
 
 This project does rely on authentication, only the project admin is allowed to change or view the settings. No login required, just make sure you're signed into Google as the same use who created the project.
