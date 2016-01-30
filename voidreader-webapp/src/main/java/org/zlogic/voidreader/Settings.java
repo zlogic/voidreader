@@ -118,6 +118,7 @@ public class Settings {
 	 * @param entity the Datastore Entity
 	 */
 	private Settings(Entity entity) {
+		this();
 		username = entity.getKey().getName();
 		mailTo = ((Email) entity.getProperty("mailTo")).getEmail(); //NOI18N
 		enablePdf = ((Boolean) entity.getProperty("enablePdf")); //NOI18N
