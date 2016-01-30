@@ -14,6 +14,10 @@ import java.io.StringReader;
 import java.util.ResourceBundle;
 import java.util.concurrent.TimeoutException;
 import org.zlogic.voidreader.feed.FeedsState;
+import org.zlogic.voidreader.handler.ErrorHandler;
+import org.zlogic.voidreader.handler.FeedItemHandler;
+import org.zlogic.voidreader.handler.impl.DummyHandler;
+import org.zlogic.voidreader.handler.impl.EmailHandler;
 
 /**
  * Class used to launch the feed download process
@@ -31,10 +35,18 @@ public class FeedDownloader {
 	 * Downloads feeds, handles new items, saves the feed state.
 	 *
 	 * @param settings the user settings
+	 * @param dummyHandler true if a DummyHandler should be used instead of a
+	 * real email sender (EmailHandler)
 	 */
-	public void downloadFeeds(Settings settings) {
+	public void downloadFeeds(Settings settings, boolean dummyHandler) {
 		try (Reader sourceReader = new StringReader(settings.getOpml())) {
-			FeedsState feedData = new FeedsState(settings);
+			FeedItemHandler feedItemHandler;
+			ErrorHandler errorHandler;
+			if (dummyHandler)
+				feedItemHandler = (FeedItemHandler) (errorHandler = new DummyHandler());
+			else
+				feedItemHandler = (FeedItemHandler) (errorHandler = new EmailHandler(settings));
+			FeedsState feedData = new FeedsState(settings, feedItemHandler, errorHandler);
 			feedData.updateOpml((Opml) new WireFeedInput().build(sourceReader));
 			feedData.update();
 		} catch (IOException | IllegalArgumentException | FeedException | TimeoutException ex) {

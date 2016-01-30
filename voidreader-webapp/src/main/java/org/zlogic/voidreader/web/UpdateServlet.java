@@ -2,6 +2,7 @@ package org.zlogic.voidreader.web;
 
 import com.google.appengine.api.datastore.EntityNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.ResourceBundle;
 import javax.servlet.ServletException;
@@ -36,15 +37,20 @@ public class UpdateServlet extends HttpServlet {
 		if ("true".equalsIgnoreCase(request.getHeader("X-Appengine-Cron"))) { //NOI18N
 			List<Settings> settingsList = Settings.loadAll();
 			for (Settings settings : settingsList)
-				new FeedDownloader().downloadFeeds(settings);
+				new FeedDownloader().downloadFeeds(settings, false);
 		} else {
+			boolean dummyHandler = request.getParameter("dummy") != null; //NOI18N
 			try {
 				Settings settings = Settings.load(request.getUserPrincipal().getName());
-				new FeedDownloader().downloadFeeds(settings);
+				new FeedDownloader().downloadFeeds(settings, dummyHandler);
 			} catch (EntityNotFoundException ex) {
 				throw new ServletException(messages.getString("YOU_NEED_TO_CONFIGURE_VOID_READER_FIRST"));
 			}
 		}
+		response.setCharacterEncoding("utf-8"); //NOI18N
+		response.setContentType("text/plain; charset=UTF-8"); //NOI18N
+		request.setCharacterEncoding("utf-8"); //NOI18N
+		response.getOutputStream().print(messages.getString("OK"));
 	}
 
 }

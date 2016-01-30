@@ -71,12 +71,13 @@ public class FeedsState {
 	 * Constructor for FeedsState
 	 *
 	 * @param settings the user settings
+	 * @param feedItemHandler the FeedItemHandler instance
+	 * @param errorHandler the ErrorHandler instance
 	 */
-	public FeedsState(Settings settings) {
+	public FeedsState(Settings settings, FeedItemHandler feedItemHandler, ErrorHandler errorHandler) {
 		this.settings = settings;
-		EmailHandler emailHandler = new EmailHandler(settings);
-		errorHandler = emailHandler;
-		feedItemHandler = emailHandler;
+		this.feedItemHandler = feedItemHandler;
+		this.errorHandler = errorHandler;
 
 		Calendar expiryDate = new GregorianCalendar();
 		expiryDate.add(Calendar.DAY_OF_MONTH, -settings.getCacheExpireDays());

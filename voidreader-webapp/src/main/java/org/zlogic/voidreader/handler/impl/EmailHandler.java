@@ -32,7 +32,7 @@ import org.zlogic.voidreader.handler.FeedItemHandler;
 
 /**
  * FeedItemHandler and ErrorHandler implementation which sends an email for
- * every new feed item. Supports SMTP and IMAP upload protocols.
+ * every new feed item.
  *
  * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */

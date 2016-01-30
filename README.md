@@ -26,7 +26,9 @@ Configuration
 
 This project does rely on authentication, only the project admin is allowed to change or view the settings. No login required, just make sure you're signed into Google as the same use who created the project.
 
-It's very likely you're going to exceed the App Engine daily quota for sending emails (100 mails per day) the first time. Don't worry, you will get the emails on the next day. If you have too many RSS subscriptions, consider running multiple instances of this app and distributing feeds between them.
+It's very likely you're going to exceed the App Engine daily quota for sending emails (100 mails per day) the first time.
+Don't worry, you will get the emails on the next day (or if you'd prefer to mark all items as read, open https://*project_id*.appspot.com/admin/update?dummy to mark all items as sent).
+If you have too many RSS subscriptions, consider running multiple instances of this app and distributing feeds between them.
 
 Miscellaneous
 -----
