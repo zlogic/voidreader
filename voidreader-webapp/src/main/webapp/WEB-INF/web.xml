@@ -33,6 +33,18 @@
 	</security-constraint>
 	<security-constraint>
 		<web-resource-collection>
+			<web-resource-name>AdminServlets</web-resource-name>
+			<url-pattern>/settings/*</url-pattern>
+		</web-resource-collection>
+		<auth-constraint>
+			<role-name>admin</role-name>
+		</auth-constraint>
+		<user-data-constraint>
+			<transport-guarantee>CONFIDENTIAL</transport-guarantee>
+		</user-data-constraint>
+	</security-constraint>
+	<security-constraint>
+		<web-resource-collection>
 			<web-resource-name>VoidReader</web-resource-name>
 			<url-pattern>/*</url-pattern>
 		</web-resource-collection>
