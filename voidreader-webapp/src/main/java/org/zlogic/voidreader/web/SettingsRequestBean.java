@@ -40,7 +40,7 @@ public class SettingsRequestBean {
 			this.settings = Settings.load(request.getUserPrincipal().getName());
 		} catch (EntityNotFoundException ex) {
 			Properties properties = new Properties();
-			properties.setProperty("email.to", request.getUserPrincipal().getName());
+			properties.setProperty("email.to", request.getUserPrincipal().getName()); //NOI18N
 			this.settings = new Settings(request.getUserPrincipal().getName(), properties);
 		}
 	}

@@ -10,7 +10,7 @@
 	</head>
 	<body>
 		<h2>Void Reader Settings for ${pageContext.request.userPrincipal.name}</h2>
-		<form action="../admin/settings" method="post">
+		<form action="../admin/settings" method="post" accept-charset="utf-8">
 			<p>
 				Email to: <input type="email" name="email.to" value="${settings.settings.mailTo}">
 			</p>

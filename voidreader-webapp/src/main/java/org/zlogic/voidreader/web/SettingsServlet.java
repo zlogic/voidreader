@@ -7,7 +7,7 @@ package org.zlogic.voidreader.web;
 
 import com.google.appengine.api.datastore.EntityNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.nio.charset.Charset;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import javax.servlet.ServletException;
@@ -43,9 +43,7 @@ public class SettingsServlet extends HttpServlet {
 		request.setCharacterEncoding("utf-8"); //NOI18N
 		try {
 			Settings settings = Settings.load(request.getUserPrincipal().getName());
-			try (PrintWriter pw = new PrintWriter(response.getOutputStream())) {
-				pw.print(settings.toString());
-			}
+			response.getOutputStream().write(settings.toString().getBytes(Charset.forName("utf-8"))); //NOI18N
 		} catch (EntityNotFoundException ex) {
 			throw new ServletException(messages.getString("YOU_NEED_TO_CONFIGURE_VOID_READER_FIRST"));
 		}
@@ -69,9 +67,7 @@ public class SettingsServlet extends HttpServlet {
 			properties.put(key, request.getParameter(key.toString()));
 		Settings settings = new Settings(request.getUserPrincipal().getName(), properties);
 		settings.save();
-		try (PrintWriter pw = new PrintWriter(response.getOutputStream())) {
-			pw.print(settings.toString());
-		}
+		response.getOutputStream().write(settings.toString().getBytes(Charset.forName("utf-8"))); //NOI18N
 	}
 
 }
