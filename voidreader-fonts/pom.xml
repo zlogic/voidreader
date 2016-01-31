@@ -12,6 +12,14 @@
 	<artifactId>voidreader-fonts</artifactId>
 	<name>Void Reader :: Fonts package</name>
 	<packaging>jar</packaging>
+	
+	<dependencies>
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+		</dependency>
+	</dependencies>
+	
 	<build>
 		<resources>
 			<resource>

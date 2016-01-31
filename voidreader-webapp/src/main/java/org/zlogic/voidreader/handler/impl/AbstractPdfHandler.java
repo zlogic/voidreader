@@ -5,18 +5,31 @@
  */
 package org.zlogic.voidreader.handler.impl;
 
+import com.itextpdf.text.BadElementException;
 import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.pdf.BaseFont;
 import java.io.IOException;
 import java.net.URL;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Entities;
-import org.jsoup.safety.Cleaner;
-import org.jsoup.safety.Whitelist;
-import org.xhtmlrenderer.pdf.ITextFontResolver;
-import org.xhtmlrenderer.pdf.ITextRenderer;
-import org.xhtmlrenderer.render.FSFont;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.Image;
+import com.itextpdf.text.pdf.PdfWriter;
+import com.itextpdf.tool.xml.XMLWorker;
+import com.itextpdf.tool.xml.XMLWorkerFontProvider;
+import com.itextpdf.tool.xml.XMLWorkerHelper;
+import com.itextpdf.tool.xml.css.CssFile;
+import com.itextpdf.tool.xml.css.StyleAttrCSSResolver;
+import com.itextpdf.tool.xml.html.CssAppliers;
+import com.itextpdf.tool.xml.html.CssAppliersImpl;
+import com.itextpdf.tool.xml.html.Tags;
+import com.itextpdf.tool.xml.parser.XMLParser;
+import com.itextpdf.tool.xml.pipeline.css.CSSResolver;
+import com.itextpdf.tool.xml.pipeline.css.CssResolverPipeline;
+import com.itextpdf.tool.xml.pipeline.end.PdfWriterPipeline;
+import com.itextpdf.tool.xml.pipeline.html.AbstractImageProvider;
+import com.itextpdf.tool.xml.pipeline.html.HtmlPipeline;
+import com.itextpdf.tool.xml.pipeline.html.HtmlPipelineContext;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.StringReader;
 import org.zlogic.voidreader.fonts.FontsList;
 
 /**
@@ -30,42 +43,12 @@ public abstract class AbstractPdfHandler {
 	/**
 	 * The list of fonts included with this application
 	 */
-	private final FontsList fontsList = new FontsList();
+	private static final FontsList fontsList = new FontsList();
 
 	/**
-	 * Renders an XHTML page to PDF
-	 *
-	 * @param html the page XHTML contents
-	 * @param baseUrl the page base URL
-	 * @return an ITextRenderer which can be used to produce the final PDF
-	 * document
-	 * @throws IOException when fonts cannot be located
-	 * @throws DocumentException when an error prevents the PDF document from
-	 * being generated
+	 * HTMLDownloaderCleaner instance
 	 */
-	protected ITextRenderer renderPdf(String html, String baseUrl) throws IOException, DocumentException {
-		ITextRenderer renderer = new ITextRenderer();
-
-		//Replace with custom font resolver
-		ITextFontResolver fontResolver = new ITextFontResolver(renderer.getSharedContext()) {
-			@Override
-			public org.xhtmlrenderer.render.FSFont resolveFont(org.xhtmlrenderer.layout.SharedContext renderingContext, org.xhtmlrenderer.css.value.FontSpecification spec) {
-				spec.families = new String[]{"Open Sans"}; //NOI18N
-				FSFont font = super.resolveFont(renderingContext, spec);
-				return font;
-			}
-		};
-		renderer.getSharedContext().setFontResolver(fontResolver);
-
-		//Override fonts
-		for (URL url : fontsList.getFontUrls())
-			if (url.toExternalForm().endsWith(".ttf")) //NOI18N
-				fontResolver.addFont(url.toExternalForm(), BaseFont.IDENTITY_H, true);
-
-		renderer.setDocumentFromString(html, baseUrl);
-		renderer.layout();
-		return renderer;
-	}
+	private static final HTMLDownloaderCleaner htmlDownloaderCleaner = new HTMLDownloaderCleaner();
 
 	/**
 	 * Downloads a feed item's URL with Flying Saucer, converts to XHTML and
@@ -78,40 +61,59 @@ public abstract class AbstractPdfHandler {
 	 * @throws DocumentException when an error prevents the PDF document from
 	 * being generated
 	 */
-	protected ITextRenderer downloadRenderPdf(String url) throws IOException, DocumentException {
-		Document htmlDocument = Jsoup.connect(url).followRedirects(true).timeout(60000).get();//TODO: make timeout configurable
-		Cleaner cleaner = new Cleaner(Whitelist.relaxed().preserveRelativeLinks(false)
-				.addTags("span") //NOI18N
-				.addAttributes("span", "id", "style")); //NOI18N
-		Document htmlDocumentClean = cleaner.clean(htmlDocument);
-		htmlDocumentClean.setBaseUri(url);
-		htmlDocumentClean.outputSettings().prettyPrint(false);
-		htmlDocumentClean.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
-		htmlDocumentClean.outputSettings().escapeMode(Entities.EscapeMode.xhtml);
-		/*
-		 for (Element element : htmlDocument.head().getAllElements()) {
-		 switch (element.tagName().toLowerCase()) {
-		 case "style":
-		 Element styleElement = htmlDocumentClean.head().appendElement(element.tagName());
-		 styleElement.appendText(element.text());
-		 for (Node dataNode : element.dataNodes())
-		 styleElement.appendChild(dataNode);
-		 for (Attribute attribute : element.attributes())
-		 if (attribute.getKey().toLowerCase().equals("id") || attribute.getKey().toLowerCase().equals("type"))
-		 styleElement.attr(attribute.getKey(), attribute.getValue());
-		 break;
-		 case "link":
-		 Element linkElement = htmlDocumentClean.head().appendElement(element.tagName());
-		 linkElement.appendText(element.text());
-		 for (Attribute attribute : element.attributes())
-		 if (attribute.getKey().toLowerCase().equals("rel") || attribute.getKey().toLowerCase().equals("href") || attribute.getKey().toLowerCase().equals("type"))
-		 linkElement.attr(attribute.getKey(), attribute.getValue());
-		 for (Node dataNode : element.dataNodes())
-		 linkElement.appendChild(dataNode);
-		 break;
-		 }
-		 }
-		 */
-		return renderPdf(htmlDocumentClean.html(), url);
+	protected byte[] downloadRenderPdf(final URL url) throws IOException, DocumentException {
+
+		AbstractImageProvider imageProvider = new AbstractImageProvider() {
+
+			@Override
+			public Image retrieve(final String src) {
+				Image img = super.retrieve(src);
+				if (img != null)
+					return img;
+				try {
+					super.store(src, Image.getInstance(new URL(src)));
+				} catch (BadElementException | IOException ex) {
+					return null;
+				}
+				return super.retrieve(src);
+			}
+
+			@Override
+			public String getImageRootPath() {
+				return url.getPath();
+			}
+		};
+
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+		Document document = new Document();
+
+		PdfWriter writer = PdfWriter.getInstance(document, baos);
+		document.open();
+
+		CSSResolver cssResolver = new StyleAttrCSSResolver();
+		CssFile cssFile = XMLWorkerHelper.getCSS(new ByteArrayInputStream("body {font-family:open sans}".getBytes()));
+		cssResolver.addCss(cssFile);
+
+		XMLWorkerFontProvider fontProvider = new XMLWorkerFontProvider(XMLWorkerFontProvider.DONTLOOKFORFONTS);
+		for (URL fontURL : fontsList.getFontUrls())
+			fontProvider.register(fontURL.toString());
+		CssAppliers cssAppliers = new CssAppliersImpl(fontProvider);
+
+		HtmlPipelineContext htmlContext = new HtmlPipelineContext(cssAppliers);
+		htmlContext.setTagFactory(Tags.getHtmlTagProcessorFactory());
+		htmlContext.setImageProvider(imageProvider);
+
+		PdfWriterPipeline pdf = new PdfWriterPipeline(document, writer);
+		HtmlPipeline htmlPipeline = new HtmlPipeline(htmlContext, pdf);
+		CssResolverPipeline css = new CssResolverPipeline(cssResolver, htmlPipeline);
+
+		XMLWorker worker = new XMLWorker(css, true);
+		XMLParser p = new XMLParser(worker);
+		p.parse(new StringReader(htmlDownloaderCleaner.downloadCleanHTML(url)));
+
+		document.close();
+		return baos.toByteArray();
 	}
+
 }

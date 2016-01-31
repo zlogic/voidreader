@@ -129,9 +129,11 @@ public class FeedItem implements Comparable<FeedItem> {
 	 *
 	 * Constructs a FeedItem instance from a Datastore Entity.
 	 *
+	 * @param feed the feed
 	 * @param entity the Datastore Entity
 	 */
-	private FeedItem(Entity entity) {
+	public FeedItem(Feed feed, Entity entity) {
+		this.feed = feed;
 		this.id = entity.getKey().getName();
 		this.lastSeen = (Date) entity.getProperty("lastSeen"); //NOI18N
 		this.state = State.valueOf((String) entity.getProperty("state")); //NOI18N
@@ -147,31 +149,15 @@ public class FeedItem implements Comparable<FeedItem> {
 	}
 
 	/**
-	 * Loads all FeedItem instances for Feed from Datastore.
+	 * Returns this FeedItem as an Entity which can be saved into the Datastore.
 	 *
-	 * @param feed the parent Feed
-	 * @return the list of all FeedItem instances for Feed from Datastore
+	 * @return this FeedItem as an Entity
 	 */
-	public static Set<FeedItem> load(Feed feed) {
-		Set<FeedItem> feedItems = new HashSet<>();
-		Query query = new Query(FeedItem.class.getSimpleName(), feed.getKey());
-		PreparedQuery preparedQuery = datastore.prepare(query);
-		for (Entity result : preparedQuery.asIterable()) {
-			FeedItem feedItem = new FeedItem(result);
-			feedItem.feed = feed;
-			feedItems.add(feedItem);
-		}
-		return feedItems;
-	}
-
-	/**
-	 * Saves this FeedItem instance to Datastore.
-	 */
-	public void save() {
+	public Entity getEntity() {
 		Entity entity = new Entity(getKey());
 		entity.setProperty("lastSeen", lastSeen); //NOI18N
 		entity.setProperty("state", state.toString()); //NOI18N
-		datastore.put(entity);
+		return entity;
 	}
 
 	@Override

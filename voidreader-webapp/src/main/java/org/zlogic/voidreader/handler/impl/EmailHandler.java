@@ -5,8 +5,8 @@
  */
 package org.zlogic.voidreader.handler.impl;
 
-import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.URL;
 import java.text.MessageFormat;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -138,9 +138,6 @@ public class EmailHandler extends AbstractPdfHandler implements ErrorHandler, Fe
 	 * @return the PDF as a byte array
 	 */
 	private byte[] createPdf(FeedItem item) throws Exception {
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-		downloadRenderPdf(item.getLink()).createPDF(out);
-		return out.toByteArray();
+		return downloadRenderPdf(new URL(item.getLink()));
 	}
 }

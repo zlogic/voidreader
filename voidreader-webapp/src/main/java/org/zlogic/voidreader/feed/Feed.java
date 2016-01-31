@@ -133,7 +133,7 @@ public class Feed {
 		PreparedQuery preparedQuery = datastore.prepare(query);
 		for (Entity result : preparedQuery.asIterable()) {
 			Feed feed = new Feed(result, settings);
-			feed.items = FeedItem.load(feed);
+			feed.items = feed.loadItems();
 			feeds.add(feed);
 		}
 		return feeds;
@@ -149,6 +149,20 @@ public class Feed {
 	 */
 	public static Feed load(Key key, Settings settings) throws EntityNotFoundException {
 		return new Feed(datastore.get(key), settings);
+	}
+
+	/**
+	 * Loads all FeedItem instances for Feed from Datastore.
+	 *
+	 * @return the list of all FeedItem instances for Feed from Datastore
+	 */
+	private Set<FeedItem> loadItems() {
+		Set<FeedItem> feedItems = new HashSet<>();
+		Query query = new Query(FeedItem.class.getSimpleName(), getKey());
+		PreparedQuery preparedQuery = datastore.prepare(query);
+		for (Entity result : preparedQuery.asIterable())
+			feedItems.add(new FeedItem(this, result));
+		return feedItems;
 	}
 
 	/**
@@ -206,24 +220,31 @@ public class Feed {
 		for (SyndEntry entry : entries)
 			newItems.add(new FeedItem(this, entry));
 
+		Set<Key> deleteItems = new HashSet<>();
+		final Set<Entity> saveItems = Collections.synchronizedSet(new HashSet<Entity>());
+
 		//Find outdated items
 		for (FeedItem oldItem : new HashSet<>(items))
 			if (!newItems.contains(oldItem) && oldItem.getLastSeen() != null && oldItem.getLastSeen().before(cacheExpiryDate)) {
 				//Item expired
 				items.remove(oldItem);
-				datastore.delete(oldItem.getKey());
+				deleteItems.add(oldItem.getKey());
 			} else if (newItems.contains(oldItem)) {
 				for (FeedItem newItem : newItems)
 					if (newItem.equals(oldItem))
 						newItem.setState(oldItem.getState());//Transfer state to new item
 				if (oldItem.getState() != FeedItem.State.SENT_PDF) {
 					items.remove(oldItem);//Replace with new item to resend pdf
-					datastore.delete(oldItem.getKey());
+					deleteItems.add(oldItem.getKey());
 				} else {
 					oldItem.updateLastSeen();
-					oldItem.save();
+					saveItems.add(oldItem.getEntity());
 				}
 			}
+
+		// Delete items pending
+		datastore.delete(deleteItems);
+		deleteItems.clear();
 
 		// Ignore already existing items
 		newItems.removeAll(items);
@@ -231,7 +252,6 @@ public class Feed {
 		//Add new items
 		items.addAll(newItems);
 		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), ThreadManager.currentRequestThreadFactory());
-		final Set<FeedItem> failedItems = Collections.synchronizedSet(new HashSet<FeedItem>());
 		for (FeedItem item : newItems) {
 			executor.submit(new Runnable() {
 				private FeedItemHandler handler;
@@ -249,7 +269,7 @@ public class Feed {
 				public void run() {
 					try {
 						handler.handle(feed, item);
-						item.save();
+						saveItems.add(item.getEntity());
 					} catch (RuntimeException ex) {
 						log.error(MessageFormat.format(messages.getString("ERROR_HANDLING_FEED_ITEM"), new Object[]{item}), ex);
 					}
@@ -264,7 +284,7 @@ public class Feed {
 		} catch (InterruptedException ex) {
 			throw new RuntimeException(ex);
 		}
-		items.removeAll(failedItems);
+		datastore.put(saveItems);
 	}
 
 	/**
