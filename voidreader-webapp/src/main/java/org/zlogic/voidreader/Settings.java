@@ -16,7 +16,7 @@ import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.Text;
 import java.io.IOException;
 import java.text.MessageFormat;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -133,7 +133,7 @@ public class Settings {
 	 * @return list of all Settings from Datastore
 	 */
 	public static List<Settings> loadAll() {
-		List<Settings> results = new LinkedList<>();
+		List<Settings> results = new ArrayList<>();
 		Query query = new Query(Settings.class.getSimpleName());
 		PreparedQuery preparedQuery = datastore.prepare(query);
 		for (Entity entity : preparedQuery.asIterable())
@@ -160,11 +160,11 @@ public class Settings {
 	 */
 	public void save() {
 		Entity settings = new Entity(getKey());
-		settings.setProperty("mailTo", new Email(mailTo)); //NOI18N
-		settings.setProperty("enablePdf", enablePdf); //NOI18N
-		settings.setProperty("maxRunSeconds", maxRunSeconds); //NOI18N
-		settings.setProperty("cacheExpireDays", cacheExpireDays); //NOI18N
-		settings.setProperty("opml", new Text(opml)); //NOI18N
+		settings.setUnindexedProperty("mailTo", new Email(mailTo)); //NOI18N
+		settings.setUnindexedProperty("enablePdf", enablePdf); //NOI18N
+		settings.setUnindexedProperty("maxRunSeconds", maxRunSeconds); //NOI18N
+		settings.setUnindexedProperty("cacheExpireDays", cacheExpireDays); //NOI18N
+		settings.setUnindexedProperty("opml", new Text(opml)); //NOI18N
 		datastore.put(settings);
 	}
 

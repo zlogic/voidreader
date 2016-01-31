@@ -12,10 +12,10 @@ import com.google.appengine.api.datastore.EntityNotFoundException;
 import com.google.appengine.api.datastore.Key;
 import com.rometools.opml.feed.opml.Opml;
 import com.rometools.opml.feed.opml.Outline;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 import org.zlogic.voidreader.Settings;
 import org.zlogic.voidreader.handler.ErrorHandler;
 import org.zlogic.voidreader.handler.FeedItemHandler;
-import org.zlogic.voidreader.handler.impl.EmailHandler;
 
 /**
  * Toplevel class for handling all feeds: saving data to XML, restoring data
@@ -93,14 +92,10 @@ public class FeedsState {
 		List<Feed> newFeeds = loadFeeds(opml.getOutlines(), null);
 		List<Feed> existingFeeds = getFeeds();
 		//Remove items absent from OPML
-		List<Key> removeItems = new LinkedList<>();
-		for (Feed feed : existingFeeds) {
-			if (!newFeeds.contains(feed)) {
+		List<Key> removeItems = new ArrayList<>();
+		for (Feed feed : existingFeeds)
+			if (!newFeeds.contains(feed))
 				removeItems.add(feed.getKey());
-				for (FeedItem item : feed.getItems())
-					removeItems.add(item.getKey());
-			}
-		}
 		datastore.delete(removeItems);
 		//Update/add items from OPML
 		for (Feed feed : newFeeds) {
@@ -121,12 +116,12 @@ public class FeedsState {
 	 * @return the list of Feed instances
 	 */
 	private List<Feed> loadFeeds(List<Outline> outlines, List<String> parentTitles) {
-		List<Feed> loadedFeeds = new LinkedList<>();
+		List<Feed> loadedFeeds = new ArrayList<>();
 		if (parentTitles == null)
-			parentTitles = new LinkedList<>();
+			parentTitles = new ArrayList<>();
 		for (Outline obj : outlines) {
 			Outline outline = (Outline) obj;
-			List<String> currentParentTitles = new LinkedList<>(parentTitles);
+			List<String> currentParentTitles = new ArrayList<>(parentTitles);
 			currentParentTitles.add(outline.getTitle());
 			if ("rss".equals(outline.getType()) && outline.getXmlUrl() != null) //NOI18N
 				loadedFeeds.add(new Feed(outline.getXmlUrl(), currentParentTitles, settings));

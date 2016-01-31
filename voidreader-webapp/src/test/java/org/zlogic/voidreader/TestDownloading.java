@@ -10,6 +10,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URL;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.zlogic.voidreader.handler.impl.AbstractPdfHandler;
 import org.zlogic.voidreader.handler.impl.HTMLDownloaderCleaner;
@@ -19,6 +20,7 @@ import org.zlogic.voidreader.handler.impl.HTMLDownloaderCleaner;
  *
  * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
+@Ignore
 public class TestDownloading {
 
 	/**

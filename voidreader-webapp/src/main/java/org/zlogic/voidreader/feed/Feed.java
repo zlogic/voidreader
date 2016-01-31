@@ -8,6 +8,7 @@ package org.zlogic.voidreader.feed;
 import com.google.appengine.api.ThreadManager;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.EmbeddedEntity;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.EntityNotFoundException;
 import com.google.appengine.api.datastore.Key;
@@ -22,10 +23,10 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
@@ -104,8 +105,8 @@ public class Feed {
 	 */
 	protected Feed(String url, List<String> userTitle, Settings settings) {
 		this.url = url;
-		this.userTitle = new LinkedList<>(userTitle);
-		this.items = new HashSet<>();
+		this.items = Collections.synchronizedSet(new HashSet<FeedItem>());
+		this.userTitle = new ArrayList<>(userTitle);
 		this.settings = settings;
 	}
 
@@ -118,6 +119,11 @@ public class Feed {
 	 */
 	private Feed(Entity entity, Settings settings) {
 		this.url = entity.getKey().getName();
+		this.items = Collections.synchronizedSet(new HashSet<FeedItem>());
+		List<EmbeddedEntity> savedItems = (List<EmbeddedEntity>) entity.getProperty("items"); //NOI18N
+		if (savedItems != null)
+			for (EmbeddedEntity item : savedItems)
+				this.items.add(new FeedItem(this, item));
 		this.settings = settings;
 	}
 
@@ -128,14 +134,11 @@ public class Feed {
 	 * @return the list of all Feed instances for user from Datastore
 	 */
 	public static List<Feed> load(Settings settings) {
-		List<Feed> feeds = new LinkedList<>();
+		List<Feed> feeds = new ArrayList<>();
 		Query query = new Query(Feed.class.getSimpleName(), settings.getKey());
 		PreparedQuery preparedQuery = datastore.prepare(query);
-		for (Entity result : preparedQuery.asIterable()) {
-			Feed feed = new Feed(result, settings);
-			feed.items = feed.loadItems();
-			feeds.add(feed);
-		}
+		for (Entity result : preparedQuery.asIterable())
+			feeds.add(new Feed(result, settings));
 		return feeds;
 	}
 
@@ -152,20 +155,6 @@ public class Feed {
 	}
 
 	/**
-	 * Loads all FeedItem instances for Feed from Datastore.
-	 *
-	 * @return the list of all FeedItem instances for Feed from Datastore
-	 */
-	private Set<FeedItem> loadItems() {
-		Set<FeedItem> feedItems = new HashSet<>();
-		Query query = new Query(FeedItem.class.getSimpleName(), getKey());
-		PreparedQuery preparedQuery = datastore.prepare(query);
-		for (Entity result : preparedQuery.asIterable())
-			feedItems.add(new FeedItem(this, result));
-		return feedItems;
-	}
-
-	/**
 	 * Sets feed items from another Feed.
 	 *
 	 * @param feed the feed from which to copy feed items
@@ -175,10 +164,14 @@ public class Feed {
 	}
 
 	/**
-	 * Saves this Feed instance to Datastore. Doesn't process FeedItems.
+	 * Saves this Feed instance to Datastore.
 	 */
 	public void save() {
+		List<EmbeddedEntity> embeddedEntities = new ArrayList<>();
+		for (FeedItem item : items)
+			embeddedEntities.add(item.getEntity());
 		Entity feed = new Entity(getKey());
+		feed.setUnindexedProperty("items", embeddedEntities); //NOI18N
 		datastore.put(feed);
 	}
 
@@ -220,31 +213,20 @@ public class Feed {
 		for (SyndEntry entry : entries)
 			newItems.add(new FeedItem(this, entry));
 
-		Set<Key> deleteItems = new HashSet<>();
-		final Set<Entity> saveItems = Collections.synchronizedSet(new HashSet<Entity>());
-
 		//Find outdated items
 		for (FeedItem oldItem : new HashSet<>(items))
 			if (!newItems.contains(oldItem) && oldItem.getLastSeen() != null && oldItem.getLastSeen().before(cacheExpiryDate)) {
 				//Item expired
 				items.remove(oldItem);
-				deleteItems.add(oldItem.getKey());
 			} else if (newItems.contains(oldItem)) {
 				for (FeedItem newItem : newItems)
 					if (newItem.equals(oldItem))
 						newItem.setState(oldItem.getState());//Transfer state to new item
-				if (oldItem.getState() != FeedItem.State.SENT_PDF) {
+				if (oldItem.getState() != FeedItem.State.SENT_PDF)
 					items.remove(oldItem);//Replace with new item to resend pdf
-					deleteItems.add(oldItem.getKey());
-				} else {
+				else
 					oldItem.updateLastSeen();
-					saveItems.add(oldItem.getEntity());
-				}
 			}
-
-		// Delete items pending
-		datastore.delete(deleteItems);
-		deleteItems.clear();
 
 		// Ignore already existing items
 		newItems.removeAll(items);
@@ -269,7 +251,6 @@ public class Feed {
 				public void run() {
 					try {
 						handler.handle(feed, item);
-						saveItems.add(item.getEntity());
 					} catch (RuntimeException ex) {
 						log.error(MessageFormat.format(messages.getString("ERROR_HANDLING_FEED_ITEM"), new Object[]{item}), ex);
 					}
@@ -284,7 +265,6 @@ public class Feed {
 		} catch (InterruptedException ex) {
 			throw new RuntimeException(ex);
 		}
-		datastore.put(saveItems);
 	}
 
 	/**

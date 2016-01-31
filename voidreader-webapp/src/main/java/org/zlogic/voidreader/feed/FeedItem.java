@@ -5,19 +5,12 @@
  */
 package org.zlogic.voidreader.feed;
 
-import com.google.appengine.api.datastore.DatastoreService;
-import com.google.appengine.api.datastore.DatastoreServiceFactory;
-import com.google.appengine.api.datastore.Entity;
-import com.google.appengine.api.datastore.Key;
-import com.google.appengine.api.datastore.PreparedQuery;
-import com.google.appengine.api.datastore.Query;
+import com.google.appengine.api.datastore.EmbeddedEntity;
 import com.rometools.rome.feed.synd.SyndEntry;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Objects;
-import java.util.Set;
 import org.apache.commons.io.IOUtils;
 import org.stringtemplate.v4.ST;
 
@@ -29,11 +22,6 @@ import org.stringtemplate.v4.ST;
  * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
 public class FeedItem implements Comparable<FeedItem> {
-
-	/**
-	 * The DatastoreService instance
-	 */
-	private static final DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
 	/**
 	 * The state of feed items
@@ -127,36 +115,29 @@ public class FeedItem implements Comparable<FeedItem> {
 
 	/**
 	 *
-	 * Constructs a FeedItem instance from a Datastore Entity.
+	 * Constructs a FeedItem instance from a Datastore EmbeddedEntity.
 	 *
 	 * @param feed the feed
-	 * @param entity the Datastore Entity
+	 * @param entity the Datastore EmbeddedEntity
 	 */
-	public FeedItem(Feed feed, Entity entity) {
+	public FeedItem(Feed feed, EmbeddedEntity entity) {
 		this.feed = feed;
-		this.id = entity.getKey().getName();
+		this.id = (String) entity.getProperty("id");
 		this.lastSeen = (Date) entity.getProperty("lastSeen"); //NOI18N
 		this.state = State.valueOf((String) entity.getProperty("state")); //NOI18N
 	}
 
 	/**
-	 * Returns the key for this Feed instance.
+	 * Returns this FeedItem as an EmbeddedEntity which can be saved into the
+	 * Datastore.
 	 *
-	 * @return the key for this Feed instance
+	 * @return this FeedItem as an EmbeddedEntity
 	 */
-	public Key getKey() {
-		return new Entity(FeedItem.class.getSimpleName(), id, feed.getKey()).getKey();
-	}
-
-	/**
-	 * Returns this FeedItem as an Entity which can be saved into the Datastore.
-	 *
-	 * @return this FeedItem as an Entity
-	 */
-	public Entity getEntity() {
-		Entity entity = new Entity(getKey());
-		entity.setProperty("lastSeen", lastSeen); //NOI18N
-		entity.setProperty("state", state.toString()); //NOI18N
+	public EmbeddedEntity getEntity() {
+		EmbeddedEntity entity = new EmbeddedEntity();
+		entity.setUnindexedProperty("id", id); //NOI18N
+		entity.setUnindexedProperty("lastSeen", lastSeen); //NOI18N
+		entity.setUnindexedProperty("state", state.toString()); //NOI18N
 		return entity;
 	}
 
