@@ -1,8 +1,12 @@
+/*
+ * Void Reader project.
+ * Licensed under Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0
+ * Author: Dmitry Zolotukhin <zlogic@gmail.com>
+ */
 package org.zlogic.voidreader.web;
 
 import com.google.appengine.api.datastore.EntityNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.List;
 import java.util.ResourceBundle;
 import javax.servlet.ServletException;

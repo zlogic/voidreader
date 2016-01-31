@@ -1,3 +1,8 @@
+/*
+ * Void Reader project.
+ * Licensed under Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0
+ * Author: Dmitry Zolotukhin <zlogic@gmail.com>
+ */
 package org.zlogic.voidreader.web;
 
 import com.google.appengine.api.datastore.EntityNotFoundException;
@@ -12,7 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.zlogic.voidreader.Settings;
 
 /**
- * Servlet for updating the RSS feeds.
+ * Servlet for updating the settings.
  *
  * @author Dmitry Zolotukhin [zlogic@gmail.com]
  */
