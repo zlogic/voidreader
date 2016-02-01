@@ -77,6 +77,14 @@ public class Settings {
 	 * The thread cool size for Executor instances
 	 */
 	private int threadPoolSize = Runtime.getRuntime().availableProcessors();
+	/**
+	 * Feed connect timeout
+	 */
+	private int feedConnectTimeout;
+	/**
+	 * Feed read timeout
+	 */
+	private int feedReadTimeout;
 
 	/**
 	 * Default constructor
@@ -86,6 +94,8 @@ public class Settings {
 		try {
 			properties.load(getClass().getResourceAsStream("/settings.properties")); //NOI18N
 			mailFrom = new InternetAddress(properties.getProperty("email.from")).toString(); //NOI18N
+			feedConnectTimeout = Integer.parseInt(properties.getProperty("feed.connect_timeout", "30000")); //NOI18N
+			feedReadTimeout = Integer.parseInt(properties.getProperty("feed.read_timeout", "15000")); //NOI18N
 		} catch (AddressException | IOException ex) {
 			throw new RuntimeException(ex);
 		}
@@ -110,6 +120,8 @@ public class Settings {
 		cacheExpireDays = Integer.parseInt(properties.getProperty("cache.expire_days", "3")); //NOI18N
 		maxRunSeconds = Integer.parseInt(properties.getProperty("core.max_run_seconds", "-1")); //NOI18N
 		enablePdf = properties.getProperty("pdf.enable", "false").equals("on"); //NOI18N
+		feedConnectTimeout = Integer.parseInt(properties.getProperty("feed.connect_timeout", "30000")); //NOI18N
+		feedReadTimeout = Integer.parseInt(properties.getProperty("feed.read_timeout", "15000")); //NOI18N
 	}
 
 	/**
@@ -125,6 +137,8 @@ public class Settings {
 		maxRunSeconds = ((Long) entity.getProperty("maxRunSeconds")).intValue(); //NOI18N
 		cacheExpireDays = ((Long) entity.getProperty("cacheExpireDays")).intValue(); //NOI18N
 		opml = ((Text) entity.getProperty("opml")).getValue(); //NOI18N
+		feedConnectTimeout = ((Long) entity.getProperty("feedConnectTimeout")).intValue(); //NOI18N
+		feedReadTimeout = ((Long) entity.getProperty("feedReadTimeout")).intValue(); //NOI18N
 	}
 
 	/**
@@ -165,6 +179,8 @@ public class Settings {
 		settings.setUnindexedProperty("maxRunSeconds", maxRunSeconds); //NOI18N
 		settings.setUnindexedProperty("cacheExpireDays", cacheExpireDays); //NOI18N
 		settings.setUnindexedProperty("opml", new Text(opml)); //NOI18N
+		settings.setUnindexedProperty("feedConnectTimeout", feedConnectTimeout); //NOI18N
+		settings.setUnindexedProperty("feedReadTimeout", feedReadTimeout); //NOI18N
 		datastore.put(settings);
 	}
 
@@ -261,10 +277,28 @@ public class Settings {
 		return threadPoolSize;
 	}
 
+	/**
+	 * Returns the feed connect timeout
+	 *
+	 * @return the feed connect timeout
+	 */
+	public int getFeedConnectTimeout() {
+		return feedConnectTimeout;
+	}
+
+	/**
+	 * Returns the feed read timeout
+	 *
+	 * @return the feed read timeout
+	 */
+	public int getFeedReadTimeout() {
+		return feedReadTimeout;
+	}
+
 	@Override
 	public String toString() {
 		return MessageFormat.format(messages.getString("SETTINGS_TOSTRING_FORMAT"),
-				username, cacheExpireDays, maxRunSeconds, enablePdf, mailFrom, mailTo, threadPoolSize, opml);
+				username, cacheExpireDays, maxRunSeconds, enablePdf, mailFrom, mailTo, threadPoolSize, feedConnectTimeout, feedReadTimeout, opml);
 	}
 
 }

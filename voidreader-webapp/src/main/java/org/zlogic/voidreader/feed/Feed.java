@@ -279,6 +279,8 @@ public class Feed {
 	protected void update(FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) {
 		try {
 			URLConnection connection = new URL(url).openConnection();
+			connection.setConnectTimeout(settings.getFeedConnectTimeout());
+			connection.setReadTimeout(settings.getFeedReadTimeout());
 			connection.connect();
 			SyndFeedInput feedInput = new SyndFeedInput();
 			Charset charset = Charset.forName("utf-8"); //NOI18N

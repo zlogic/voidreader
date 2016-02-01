@@ -24,6 +24,12 @@
 				PDF enable: <input type="checkbox" name="pdf.enable" ${settings.settings.enablePdf?"checked":""}>
 			</p>
 			<p>
+				Feed connect timeout milliseconds: <input type="number" name="feed.connect_timeout" value="${settings.settings.feedConnectTimeout}">
+			</p>
+			<p>
+				Feed read timeout milliseconds: <input type="number" name="feed.read_timeout" value="${settings.settings.feedReadTimeout}">
+			</p>
+			<p>
 				OPML: <br><textarea name="opml">${fn:escapeXml(settings.settings.opml)}</textarea>
 			</p>
 			<button type="submit">Submit</button>
