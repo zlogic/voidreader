@@ -62,10 +62,6 @@ public class Settings {
 	 */
 	private int cacheExpireDays;
 	/**
-	 * Maximum time application can run before being forcefully terminated
-	 */
-	private int maxRunSeconds;
-	/**
 	 * Enable downloading and sending of PDF copies of original articles
 	 */
 	private boolean enablePdf;
@@ -74,9 +70,9 @@ public class Settings {
 	 */
 	private String opml;
 	/**
-	 * The thread cool size for Executor instances
+	 * The thread pool size for Executor instances
 	 */
-	private int threadPoolSize = Runtime.getRuntime().availableProcessors();
+	private int threadPoolSize = 50;
 	/**
 	 * Feed connect timeout
 	 */
@@ -118,7 +114,6 @@ public class Settings {
 		}
 
 		cacheExpireDays = Integer.parseInt(properties.getProperty("cache.expire_days", "3")); //NOI18N
-		maxRunSeconds = Integer.parseInt(properties.getProperty("core.max_run_seconds", "-1")); //NOI18N
 		enablePdf = properties.getProperty("pdf.enable", "false").equals("on"); //NOI18N
 		feedConnectTimeout = Integer.parseInt(properties.getProperty("feed.connect_timeout", "30000")); //NOI18N
 		feedReadTimeout = Integer.parseInt(properties.getProperty("feed.read_timeout", "15000")); //NOI18N
@@ -134,7 +129,6 @@ public class Settings {
 		username = entity.getKey().getName();
 		mailTo = ((Email) entity.getProperty("mailTo")).getEmail(); //NOI18N
 		enablePdf = ((Boolean) entity.getProperty("enablePdf")); //NOI18N
-		maxRunSeconds = ((Long) entity.getProperty("maxRunSeconds")).intValue(); //NOI18N
 		cacheExpireDays = ((Long) entity.getProperty("cacheExpireDays")).intValue(); //NOI18N
 		opml = ((Text) entity.getProperty("opml")).getValue(); //NOI18N
 		feedConnectTimeout = ((Long) entity.getProperty("feedConnectTimeout")).intValue(); //NOI18N
@@ -176,7 +170,6 @@ public class Settings {
 		Entity settings = new Entity(getKey());
 		settings.setUnindexedProperty("mailTo", new Email(mailTo)); //NOI18N
 		settings.setUnindexedProperty("enablePdf", enablePdf); //NOI18N
-		settings.setUnindexedProperty("maxRunSeconds", maxRunSeconds); //NOI18N
 		settings.setUnindexedProperty("cacheExpireDays", cacheExpireDays); //NOI18N
 		settings.setUnindexedProperty("opml", new Text(opml)); //NOI18N
 		settings.setUnindexedProperty("feedConnectTimeout", feedConnectTimeout); //NOI18N
@@ -200,17 +193,6 @@ public class Settings {
 	 */
 	public int getCacheExpireDays() {
 		return cacheExpireDays;
-	}
-
-	/**
-	 * Returns the maximum time application can run before being forcefully
-	 * terminated
-	 *
-	 * @return the maximum time application can run before being forcefully
-	 * terminated
-	 */
-	public int getMaxRunSeconds() {
-		return maxRunSeconds;
 	}
 
 	/**
@@ -269,9 +251,9 @@ public class Settings {
 	}
 
 	/**
-	 * Returns the thread cool size for Executor instances.
+	 * Returns the thread pool size for Executor instances.
 	 *
-	 * @return the thread cool size for Executor instances
+	 * @return the thread pool size for Executor instances
 	 */
 	public int getThreadPoolSize() {
 		return threadPoolSize;
@@ -298,7 +280,7 @@ public class Settings {
 	@Override
 	public String toString() {
 		return MessageFormat.format(messages.getString("SETTINGS_TOSTRING_FORMAT"),
-				username, cacheExpireDays, maxRunSeconds, enablePdf, mailFrom, mailTo, threadPoolSize, feedConnectTimeout, feedReadTimeout, opml);
+				username, cacheExpireDays, enablePdf, mailFrom, mailTo, threadPoolSize, feedConnectTimeout, feedReadTimeout, opml);
 	}
 
 }

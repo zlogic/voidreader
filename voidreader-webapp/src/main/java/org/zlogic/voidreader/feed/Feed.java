@@ -5,7 +5,6 @@
  */
 package org.zlogic.voidreader.feed;
 
-import com.google.appengine.api.ThreadManager;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.EmbeddedEntity;
@@ -31,10 +30,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.Future;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -202,13 +200,14 @@ public class Feed {
 	 * @param handler the feed item handler
 	 * @param cacheExpiryDate the date after which feed items expire and can be
 	 * removed
-	 * @param maxRunSeconds the maximum time application can run before being
-	 * forcefully terminated
+	 * @param executor the ExecutorService instance to process asynchronous
+	 * tasks
 	 * @throws IOException if FeedItem constructor fails (e.g. unable to
 	 * generate HTML based on the template)
-	 * @throws TimeoutException if the task took too long to complete
+	 * @throws InterruptedException if the task was interrupted
+	 * @throws ExecutionException if the task threw an exception
 	 */
-	private void handleEntries(List<SyndEntry> entries, FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) throws IOException, TimeoutException {
+	private void handleEntries(List<SyndEntry> entries, FeedItemHandler handler, Date cacheExpiryDate, ExecutorService executor) throws IOException, InterruptedException, ExecutionException {
 		Set<FeedItem> newItems = new HashSet<>();
 		for (SyndEntry entry : entries)
 			newItems.add(new FeedItem(this, entry));
@@ -233,9 +232,10 @@ public class Feed {
 
 		//Add new items
 		items.addAll(newItems);
-		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), ThreadManager.currentRequestThreadFactory());
+
+		List<Future<?>> futures = new ArrayList<>();
 		for (FeedItem item : newItems) {
-			executor.submit(new Runnable() {
+			Future<?> future = executor.submit(new Runnable() {
 				private FeedItemHandler handler;
 				private Feed feed;
 				private FeedItem item;
@@ -256,15 +256,10 @@ public class Feed {
 					}
 				}
 			}.setParameters(handler, this, item));
+			futures.add(future);
 		}
-		executor.shutdown();
-		try {
-			if (!executor.awaitTermination(maxRunSeconds > 0 ? maxRunSeconds : Long.MAX_VALUE, TimeUnit.SECONDS)) {
-				throw new TimeoutException(messages.getString("TIMED_OUT_WAITING_FOR_EXECUTOR"));
-			}
-		} catch (InterruptedException ex) {
-			throw new RuntimeException(ex);
-		}
+		for (Future future : futures)
+			future.get();
 	}
 
 	/**
@@ -273,10 +268,10 @@ public class Feed {
 	 * @param handler the handler for feed items
 	 * @param cacheExpiryDate the date after which feed items expire and can be
 	 * removed
-	 * @param maxRunSeconds the maximum time application can run before being
-	 * forcefully terminated
+	 * @param executor the ExecutorService instance to process asynchronous
+	 * tasks
 	 */
-	protected void update(FeedItemHandler handler, Date cacheExpiryDate, int maxRunSeconds) {
+	protected void update(FeedItemHandler handler, Date cacheExpiryDate, ExecutorService executor) {
 		try {
 			URLConnection connection = new URL(url).openConnection();
 			connection.setConnectTimeout(settings.getFeedConnectTimeout());
@@ -297,8 +292,8 @@ public class Feed {
 			SyndFeed feed = feedInput.build(new InputStreamReader(connection.getInputStream(), charset));
 			title = feed.getTitle();
 			encoding = feed.getEncoding();
-			handleEntries(feed.getEntries(), handler, cacheExpiryDate, maxRunSeconds);
-		} catch (IOException | IllegalArgumentException | TimeoutException ex) {
+			handleEntries(feed.getEntries(), handler, cacheExpiryDate, executor);
+		} catch (IOException | IllegalArgumentException ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);
 		} catch (Exception ex) {
 			throw new RuntimeException(MessageFormat.format(messages.getString("CANNOT_UPDATE_FEED"), new Object[]{url}), ex);

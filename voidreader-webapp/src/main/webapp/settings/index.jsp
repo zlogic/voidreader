@@ -18,9 +18,6 @@
 				Cache expire days: <input type="number" name="cache.expire_days" value="${settings.settings.cacheExpireDays}">
 			</p>
 			<p>
-				Max run seconds: <input type="number" name="core.max_run_seconds" value="${settings.settings.maxRunSeconds}">
-			</p>
-			<p>
 				PDF enable: <input type="checkbox" name="pdf.enable" ${settings.settings.enablePdf?"checked":""}>
 			</p>
 			<p>

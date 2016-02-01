@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.ResourceBundle;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.ExecutionException;
 import org.zlogic.voidreader.feed.FeedsState;
 import org.zlogic.voidreader.handler.ErrorHandler;
 import org.zlogic.voidreader.handler.FeedItemHandler;
@@ -49,7 +49,7 @@ public class FeedDownloader {
 			FeedsState feedData = new FeedsState(settings, feedItemHandler, errorHandler);
 			feedData.updateOpml((Opml) new WireFeedInput().build(sourceReader));
 			feedData.update();
-		} catch (IOException | IllegalArgumentException | FeedException | TimeoutException ex) {
+		} catch (IOException | IllegalArgumentException | FeedException | InterruptedException | ExecutionException ex) {
 			throw new RuntimeException(messages.getString("ERROR_WHILE_DOWNLOADING_FEEDS"), ex);
 		}
 	}

@@ -18,10 +18,10 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zlogic.voidreader.Settings;
@@ -142,37 +142,42 @@ public class FeedsState {
 	/**
 	 * Downloads the latest feed data and handles new and updated items
 	 *
-	 * @throws TimeoutException if the task took too long to complete
+	 * @throws InterruptedException if the task was interrupted
+	 * @throws ExecutionException if the task threw an exception
 	 */
-	public void update() throws TimeoutException {
-		ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), ThreadManager.currentRequestThreadFactory());
-		for (Feed feed : getFeeds()) {
-			executor.submit(new Runnable() {
+	public void update() throws InterruptedException, ExecutionException {
+		ExecutorService executor = Executors.newFixedThreadPool(settings.getThreadPoolSize(), ThreadManager.currentRequestThreadFactory());
+		List<Feed> feeds = getFeeds();
+		List<Future> futures = new ArrayList<>();
+		for (Feed feed : feeds) {
+			Future<?> future = executor.submit(new Runnable() {
 				private Feed feed;
+				private ExecutorService executor;
 
-				public Runnable setParameters(Feed feed) {
+				public Runnable setParameters(Feed feed, ExecutorService executor) {
 					this.feed = feed;
+					this.executor = executor;
 					return this;
 				}
 
 				@Override
 				public void run() {
 					try {
-						feed.update(feedItemHandler, cacheExpiryDate, settings.getMaxRunSeconds());
+						feed.update(feedItemHandler, cacheExpiryDate, executor);
 						feed.save();
-					} catch (Exception ex) {
-						log.error(messages.getString("ERROR_OCCURRED_WHILE_UPDATING_FEED"), ex);//TODO: use an error handler
+					} catch (Throwable thr) {
+						log.error(messages.getString("ERROR_OCCURRED_WHILE_UPDATING_FEED"), thr);//TODO: use an error handler
 					}
 				}
-			}.setParameters(feed));
+			}.setParameters(feed, executor));
+			futures.add(future);
 		}
-		executor.shutdown();
-		try {
-			if (!executor.awaitTermination(settings.getMaxRunSeconds() > 0 ? settings.getMaxRunSeconds() : Long.MAX_VALUE, TimeUnit.SECONDS)) {
-				throw new TimeoutException(messages.getString("TIMED_OUT_WAITING_FOR_EXECUTOR"));
-			}
-		} catch (InterruptedException ex) {
-			throw new RuntimeException(ex);
-		}
+		for (Future<?> f : futures)
+			f.get();
+		List<Runnable> uncompletedTasks = executor.shutdownNow();
+		if (uncompletedTasks.isEmpty())
+			log.info(messages.getString("ALL_TASKS_FINISHED"));
+		else
+			log.error(messages.getString("DIDNT_COMPLETE_TASKS"), uncompletedTasks.size());
 	}
 }
